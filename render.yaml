@@ -1,0 +1,22 @@
+services:
+- type: web
+  name: bvg-sbahn-bot
+  env: python
+  runtime: python3
+  buildCommand: pip install -r requirements.txt
+  startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+  envVars:
+  - key: DATABASE_URL
+    fromDatabase:
+      name: bot-db
+      property: connectionString
+  - key: RUN_TOKEN
+    sync: false
+  - key: X_USERNAME
+    sync: false
+  - key: X_EMAIL
+    sync: false
+  - key: X_PASSWORD
+    sync: false
+databases:
+- name: bot-db

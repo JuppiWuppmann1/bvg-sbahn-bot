@@ -24,5 +24,5 @@ async def async_post(text: str):
     await client.create_tweet(text)
     client.save_cookies(str(COOKIE_FILE))
 
-def post_to_x(text: str):
-    asyncio.run(async_post(text))
+async def post_to_x(text: str):
+    await async_post(text)

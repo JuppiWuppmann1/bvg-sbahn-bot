@@ -1,14 +1,22 @@
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
+
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "sqlite:///./bot.db"
+    # Sicherheit
+    RUN_TOKEN: str
 
-    # Zugangsdaten für twikit
-    X_USERNAME: str | None = None
-    X_EMAIL: str | None = None
-    X_PASSWORD: str | None = None
+    # Twikit Account-Daten
+    TWIKIT_USERNAME: str
+    TWIKIT_PASSWORD: str
+    TWIKIT_EMAIL: str
 
-    RUN_TOKEN: str | None = None
-    USER_AGENT: str = "bvg-sbahn-bot/1.0"
+    # Optional: Pfad zur gespeicherten Session (damit Login nicht jedes Mal neu nötig ist)
+    SESSION_FILE: str = "twikit_session.json"
 
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+
+
+# Globale Instanz
 settings = Settings()

@@ -77,27 +77,37 @@ def format_message(name: str, title: str, status: str, timestamp: datetime = Non
 
 # Hauptprozess
 async def process_run(token: str):
+    print("🔐 Token erhalten:", token)
     if settings.RUN_TOKEN and token != settings.RUN_TOKEN:
+        print("❌ Ungültiger Token")
         raise HTTPException(status_code=401, detail="bad token")
+
+    print("🚀 Starte Verarbeitung...")
 
     results = {}
     for name, fetch_items in [
         ("BVG", fetch_bvg_items),
         ("SBAHN", fetch_sbahn_items),
     ]:
+        print(f"📡 Lade Daten von {name}...")
         items = fetch_items()
+        print(f"✅ {len(items)} Einträge geladen von {name}")
+
         new, changed, resolved = diff_and_apply(items)
+        print(f"🆕 Neue: {len(new)}, 🔄 Geändert: {len(changed)}, ✅ Gelöst: {len(resolved)}")
 
         for i in new:
-            title = i.title  # Zugriff innerhalb aktiver Session
+            title = i.title
+            print(f"📢 Neuer Eintrag erkannt: {title}")
             message = format_message(name, title, "new")
-            print("Sende Tweet:", message)
+            print("📤 Sende Tweet:", message)
             await post_to_x(message)
 
         for i in resolved:
             title = i.title
+            print(f"✅ Störung behoben: {title}")
             message = format_message(name, title, "resolved")
-            print("Sende Tweet:", message)
+            print("📤 Sende Tweet:", message)
             await post_to_x(message)
 
         results[name] = {
@@ -106,6 +116,7 @@ async def process_run(token: str):
             "resolved": len(resolved)
         }
 
+    print("🏁 Verarbeitung abgeschlossen:", results)
     return results
 
 @app.post("/run")

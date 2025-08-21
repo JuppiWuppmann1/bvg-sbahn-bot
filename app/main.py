@@ -91,11 +91,13 @@ async def process_run(token: str):
         for i in new:
             title = i.title  # Zugriff innerhalb aktiver Session
             message = format_message(name, title, "new")
+            print("Sende Tweet:", message)
             await post_to_x(message)
 
         for i in resolved:
             title = i.title
             message = format_message(name, title, "resolved")
+            print("Sende Tweet:", message)
             await post_to_x(message)
 
         results[name] = {

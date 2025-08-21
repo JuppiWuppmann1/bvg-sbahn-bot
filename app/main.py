@@ -15,9 +15,10 @@ app = FastAPI()
 def startup():
     init_db()
 
-@app.get("/health")
-def health():
+@app.api_route("/health", methods=["GET", "HEAD"])
+def health(request: Request):
     return JSONResponse(content={"ok": True}, status_code=200)
+
 
 # Schlüsselwörter pro Kategorie
 KEYWORDS = {

@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Request, HTTPException
 from .settings import settings
 from .storage import init_db
-from . import scraper_bvg, scraper_sbahn
+from .scraper_bvg import fetch_all_items
+from .import scraper_sbahn
 from .diff import diff_and_apply
 from .poster import post_to_x
 

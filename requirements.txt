@@ -1,7 +1,9 @@
+pydantic
+pydantic-settings
 fastapi
 uvicorn
-requests
+httpx
 beautifulsoup4
-pydantic
-SQLAlchemy>=2.0
+lxml
+sqlalchemy
 twikit

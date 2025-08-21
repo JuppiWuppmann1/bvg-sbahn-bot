@@ -16,9 +16,11 @@ class Incident(Base):
     first_seen = Column(DateTime, default=datetime.utcnow)
     last_seen = Column(DateTime, default=datetime.utcnow)
     content_hash = Column(String, nullable=False)
+    detail = Column(Text, nullable=True)
 
 engine = create_engine(settings.DATABASE_URL, future=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 def init_db():
     Base.metadata.create_all(engine)
+

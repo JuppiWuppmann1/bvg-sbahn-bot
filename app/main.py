@@ -15,9 +15,7 @@ def startup():
 def health():
     return {"ok": True}
 
-@app.post("/run")
-async def run(request: Request):
-    token = request.query_params.get("token")
+def process_run(token: str):
     if settings.RUN_TOKEN and token != settings.RUN_TOKEN:
         raise HTTPException(status_code=401, detail="bad token")
 
@@ -36,3 +34,13 @@ async def run(request: Request):
         results[name] = {"new": len(new), "changed": len(changed), "resolved": len(resolved)}
 
     return results
+
+@app.post("/run")
+async def run_post(request: Request):
+    token = request.query_params.get("token")
+    return process_run(token)
+
+@app.get("/run")
+async def run_get(request: Request):
+    token = request.query_params.get("token")
+    return process_run(token)

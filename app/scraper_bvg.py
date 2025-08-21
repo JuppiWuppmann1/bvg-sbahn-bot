@@ -1,14 +1,28 @@
-import hashlib, re
+import hashlib, re, time
 import requests
 from bs4 import BeautifulSoup
 from .settings import settings
 
-URL = "https://www.bvg.de/de/verbindungen/stoerungsmeldungen"
+BASE_URL = "https://www.bvg.de"
+LIST_URL = f"{BASE_URL}/de/verbindungen/stoerungsmeldungen"
 
-def fetch_html():
-    r = requests.get(URL, headers={"User-Agent": settings.USER_AGENT}, timeout=20)
+HEADERS = {"User-Agent": settings.USER_AGENT}
+
+def fetch_html(url):
+    r = requests.get(url, headers=HEADERS, timeout=20)
     r.raise_for_status()
     return r.text
+
+def extract_detail_text(href):
+    if not href.startswith("http"):
+        href = BASE_URL + href
+    try:
+        html = fetch_html(href)
+        soup = BeautifulSoup(html, "html.parser")
+        detail = soup.select_one("main")  # oder spezifischer: ".content", ".teaser", etc.
+        return detail.get_text(" ", strip=True)[:1000] if detail else ""
+    except Exception:
+        return ""
 
 def parse_items(html: str):
     soup = BeautifulSoup(html, "html.parser")
@@ -25,9 +39,27 @@ def parse_items(html: str):
         key = (title + (lines or "") + (href or "")).encode("utf-8")
         _id = "BVG-" + hashlib.sha1(key).hexdigest()
         content_hash = hashlib.sha1(title.encode("utf-8")).hexdigest()
+        detail_text = extract_detail_text(href) if href else ""
         items.append({
             "id": _id, "source": "BVG",
-            "title": title, "lines": lines,
-            "url": href, "content_hash": content_hash
+            "title": title,
+            "lines": lines,
+            "url": href,
+            "content_hash": content_hash,
+            "detail": detail_text
         })
     return items
+
+def fetch_all_items():
+    all_items = []
+    page = 1
+    while True:
+        url = LIST_URL + f"?page={page}"
+        html = fetch_html(url)
+        items = parse_items(html)
+        if not items:
+            break
+        all_items.extend(items)
+        page += 1
+        time.sleep(1)  # höflich bleiben
+    return all_items

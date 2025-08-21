@@ -64,11 +64,11 @@ def process_run(token: str):
         raise HTTPException(status_code=401, detail="bad token")
 
     results = {}
-    for name, fetch, parse in [
-        ("BVG", scraper_bvg.fetch_html, scraper_bvg.parse_items),
-        ("SBAHN", scraper_sbahn.fetch_html, scraper_sbahn.parse_items),
+    for name, fetch_items in [
+        ("BVG", fetch_all_items),
+        ("SBAHN", fetch_sbahn_items),  # Falls du das dort auch ergänzt
     ]:
-        items = fetch_all_items()
+        items = fetch_items()
         new, changed, resolved = diff_and_apply(items)
         for i in new:
             message = format_message(name, i.title, "new")

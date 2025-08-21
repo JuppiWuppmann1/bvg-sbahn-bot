@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request, HTTPException
+from datetime import datetime
 from .settings import settings
 from .storage import init_db
 from .scraper_bvg import fetch_all_items as fetch_bvg_items
@@ -16,36 +17,45 @@ def startup():
 def health():
     return {"ok": True}
 
-def format_message(name: str, title: str, status: str) -> str:
+# Schlüsselwörter pro Kategorie
+KEYWORDS = {
+    "störung": ["störung", "unterbrechung", "ausfall", "defekt", "problem"],
+    "baustelle": ["baustelle", "bauarbeiten", "bau", "arbeiten"],
+    "verspätung": ["verspätung", "verzögerung", "wartezeit", "verzögert"],
+    "ersatzverkehr": ["ersatzverkehr", "schienenersatz", "busverkehr", "umleitung"],
+    "signal": ["signal", "ampel", "signalstörung", "signalproblem"],
+    "wetter": ["regen", "schnee", "unwetter", "sturm", "hitze", "glätte"],
+    "streik": ["streik", "arbeitskampf", "tarifverhandlung", "gewerkschaft"],
+    "polizei": ["polizei", "einsatz", "kripo", "ermittlung", "sicherheitslage"]
+}
+
+# Kategorie-Erkennung
+def detect_category(title: str) -> tuple[str, str, str]:
     title_lower = title.lower()
+    for category, synonyms in KEYWORDS.items():
+        if any(word in title_lower for word in synonyms):
+            if category == "störung":
+                return "🚨", "Störung", "#Störung"
+            elif category == "baustelle":
+                return "🛠️", "Baustelle", "#Baustelle"
+            elif category == "verspätung":
+                return "⏱️", "Verspätung", "#Verspätung"
+            elif category == "ersatzverkehr":
+                return "🚌", "Ersatzverkehr", "#Ersatzverkehr"
+            elif category == "signal":
+                return "🚦", "Signalstörung", "#Signal"
+            elif category == "wetter":
+                return "🌧️", "Wetterbedingung", "#Wetter"
+            elif category == "streik":
+                return "✊", "Streik", "#Streik"
+            elif category == "polizei":
+                return "🚓", "Polizeieinsatz", "#Polizei"
+    return "ℹ️", "Info", "#Info"
 
-    # Emoji + Label basierend auf Schlüsselwörtern
-    if "störung" in title_lower:
-        emoji = "🚨"
-        label = "Störung"
-        tag = "#Störung"
-    elif "baustelle" in title_lower:
-        emoji = "🛠️"
-        label = "Baustelle"
-        tag = "#Baustelle"
-    elif "verspätung" in title_lower:
-        emoji = "⏱️"
-        label = "Verspätung"
-        tag = "#Verspätung"
-    elif "ersatzverkehr" in title_lower:
-        emoji = "🚌"
-        label = "Ersatzverkehr"
-        tag = "#Ersatzverkehr"
-    elif "signal" in title_lower:
-        emoji = "🚦"
-        label = "Signalstörung"
-        tag = "#Signal"
-    else:
-        emoji = "ℹ️"
-        label = "Info"
-        tag = "#Info"
+# Formatierte Nachricht mit Zeitstempel
+def format_message(name: str, title: str, status: str, timestamp: datetime = None) -> str:
+    emoji, label, tag = detect_category(title)
 
-    # Status-Text
     if status == "new":
         prefix = f"{emoji} [{name}] NEU ({label}):"
     elif status == "resolved":
@@ -53,20 +63,25 @@ def format_message(name: str, title: str, status: str) -> str:
     else:
         prefix = f"🔔 [{name}] UPDATE ({label}):"
 
-    # Hashtags
-    source_tag = "#BVG" if name == "BVG" else "#SBAHN"
+    source_tag = "#BVG" if name.upper() == "BVG" else "#SBAHN"
     hashtags = f"{source_tag} {tag}"
 
-    return f"{prefix} {title}\n{hashtags}"
+    # Zeitangabe formatieren
+    if timestamp is None:
+        timestamp = datetime.now()
+    time_str = timestamp.strftime("%d.%m.%Y, %H:%M Uhr")
 
+    return f"{prefix} {title}\n📅 {time_str}\n{hashtags}"
+
+# Hauptprozess
 def process_run(token: str):
     if settings.RUN_TOKEN and token != settings.RUN_TOKEN:
         raise HTTPException(status_code=401, detail="bad token")
 
     results = {}
     for name, fetch_items in [
-        ("BVG", fetch_all_items),
-        ("SBAHN", fetch_sbahn_items),  # Falls du das dort auch ergänzt
+        ("BVG", fetch_bvg_items),
+        ("SBAHN", fetch_sbahn_items),
     ]:
         items = fetch_items()
         new, changed, resolved = diff_and_apply(items)

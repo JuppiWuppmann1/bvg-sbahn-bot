@@ -1,9 +1,8 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
 pydantic
 pydantic-settings
-fastapi
-uvicorn
-httpx
+requests
 beautifulsoup4
-lxml
-sqlalchemy
 twikit

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse
 from datetime import datetime
 from .settings import settings
 from .storage import init_db
@@ -15,7 +15,7 @@ def startup():
 
 @app.get("/health")
 def health():
-    return {"ok": True}
+    return JSONResponse(content={"ok": True}, status_code=200)
 
 # Schlüsselwörter pro Kategorie
 KEYWORDS = {

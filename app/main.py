@@ -5,7 +5,7 @@ from .storage import init_db
 from .scraper_bvg import fetch_all_items as fetch_bvg_items
 from .scraper_sbahn import fetch_all_items as fetch_sbahn_items
 from .diff import diff_and_apply
-from .poster import post_to_x
+from .poster import post_to_x  # post_to_x muss async sein!
 
 app = FastAPI()
 
@@ -66,7 +66,6 @@ def format_message(name: str, title: str, status: str, timestamp: datetime = Non
     source_tag = "#BVG" if name.upper() == "BVG" else "#SBAHN"
     hashtags = f"{source_tag} {tag}"
 
-    # Zeitangabe formatieren
     if timestamp is None:
         timestamp = datetime.now()
     time_str = timestamp.strftime("%d.%m.%Y, %H:%M Uhr")
@@ -74,7 +73,7 @@ def format_message(name: str, title: str, status: str, timestamp: datetime = Non
     return f"{prefix} {title}\n📅 {time_str}\n{hashtags}"
 
 # Hauptprozess
-def process_run(token: str):
+async def process_run(token: str):
     if settings.RUN_TOKEN and token != settings.RUN_TOKEN:
         raise HTTPException(status_code=401, detail="bad token")
 
@@ -85,23 +84,31 @@ def process_run(token: str):
     ]:
         items = fetch_items()
         new, changed, resolved = diff_and_apply(items)
+
         for i in new:
-            message = format_message(name, i.title, "new")
-            post_to_x(message)
+            title = i.title  # Zugriff innerhalb aktiver Session
+            message = format_message(name, title, "new")
+            await post_to_x(message)
+
         for i in resolved:
-            message = format_message(name, i.title, "resolved")
-            post_to_x(message)
-        results[name] = {"new": len(new), "changed": len(changed), "resolved": len(resolved)}
+            title = i.title
+            message = format_message(name, title, "resolved")
+            await post_to_x(message)
+
+        results[name] = {
+            "new": len(new),
+            "changed": len(changed),
+            "resolved": len(resolved)
+        }
 
     return results
 
 @app.post("/run")
 async def run_post(request: Request):
     token = request.query_params.get("token")
-    return process_run(token)
+    return await process_run(token)
 
 @app.get("/run")
 async def run_get(request: Request):
     token = request.query_params.get("token")
-    return process_run(token)
-
+    return await process_run(token)

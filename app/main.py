@@ -9,18 +9,35 @@ from .scraper_sbahn import fetch_all_items as fetch_sbahn_items
 from .diff import diff_and_apply
 from .poster import post_to_x  # post_to_x muss async sein!
 
-app = FastAPI()
+app = FastAPI(title="BVG & S-Bahn Bot", version="1.0.0")
 
+
+# -------------------------
+# Startup / DB Init
+# -------------------------
 @app.on_event("startup")
 def startup():
+    print("🔧 Initialisiere Datenbank...")
     init_db()
+    print("✅ Datenbank bereit.")
 
+
+# -------------------------
+# Health Endpoints
+# -------------------------
 @app.api_route("/health", methods=["GET", "HEAD"])
-def health(request: Request):
+def health(_: Request):
     return JSONResponse(content={"ok": True}, status_code=200)
 
 
-# Schlüsselwörter pro Kategorie
+@app.get("/")
+async def root():
+    return {"message": "🚆 BVG und S-Bahn Bot läuft!", "status": "ok"}
+
+
+# -------------------------
+# Schlüsselwörter
+# -------------------------
 KEYWORDS = {
     "störung": ["störung", "unterbrechung", "ausfall", "defekt", "problem"],
     "baustelle": ["baustelle", "bauarbeiten", "bau", "arbeiten"],
@@ -29,10 +46,13 @@ KEYWORDS = {
     "signal": ["signal", "ampel", "signalstörung", "signalproblem"],
     "wetter": ["regen", "schnee", "unwetter", "sturm", "hitze", "glätte"],
     "streik": ["streik", "arbeitskampf", "tarifverhandlung", "gewerkschaft"],
-    "polizei": ["polizei", "einsatz", "kripo", "ermittlung", "sicherheitslage"]
+    "polizei": ["polizei", "einsatz", "kripo", "ermittlung", "sicherheitslage"],
 }
 
-# Kategorie-Erkennung
+
+# -------------------------
+# Kategorie-Erkennung (dein Original)
+# -------------------------
 def detect_category(title: str) -> tuple[str, str, str]:
     title_lower = title.lower()
     for category, synonyms in KEYWORDS.items():
@@ -55,8 +75,11 @@ def detect_category(title: str) -> tuple[str, str, str]:
                 return "🚓", "Polizeieinsatz", "#Polizei"
     return "ℹ️", "Info", "#Info"
 
-# Formatierte Nachricht mit Zeitstempel
-def format_message(name: str, title: str, status: str, timestamp: datetime = None) -> str:
+
+# -------------------------
+# Nachricht Formatieren
+# -------------------------
+def format_message(name: str, title: str, status: str, timestamp: datetime | None = None) -> str:
     emoji, label, tag = detect_category(title)
 
     if status == "new":
@@ -67,24 +90,29 @@ def format_message(name: str, title: str, status: str, timestamp: datetime = Non
         prefix = f"🔔 [{name}] UPDATE ({label}):"
 
     source_tag = "#BVG" if name.upper() == "BVG" else "#SBAHN"
-    hashtags = f"{source_tag} {tag}"
 
-    if timestamp is None:
+    if not timestamp:
         timestamp = datetime.now()
     time_str = timestamp.strftime("%d.%m.%Y, %H:%M Uhr")
 
-    return f"{prefix} {title}\n📅 {time_str}\n{hashtags}"
+    return f"{prefix} {title}\n📅 {time_str}\n{source_tag} {tag}"
 
+
+# -------------------------
 # Hauptprozess
-async def process_run(token: str):
-    print("🔐 Token erhalten:", token)
+# -------------------------
+async def process_run(token: str | None):
+    if not token:
+        raise HTTPException(status_code=400, detail="token required")
+
     if settings.RUN_TOKEN and token != settings.RUN_TOKEN:
-        print("❌ Ungültiger Token")
+        print("❌ Ungültiger Token:", token)
         raise HTTPException(status_code=401, detail="bad token")
 
     print("🚀 Starte Verarbeitung...")
 
-    results = {}
+    results: dict[str, dict[str, int]] = {}
+
     for name, fetch_items in [
         ("BVG", fetch_bvg_items),
         ("SBAHN", fetch_sbahn_items),
@@ -96,40 +124,36 @@ async def process_run(token: str):
         new, changed, resolved = diff_and_apply(items)
         print(f"🆕 Neue: {len(new)}, 🔄 Geändert: {len(changed)}, ✅ Gelöst: {len(resolved)}")
 
-        for i in new:
-            title = i.title
-            print(f"📢 Neuer Eintrag erkannt: {title}")
-            message = format_message(name, title, "new")
-            print("📤 Sende Tweet:", message)
-            await post_to_x(message)
+        for entry in new:
+            msg = format_message(name, entry.title, "new")
+            print("📤 Sende Tweet:", msg)
+            await post_to_x(msg)
 
-        for i in resolved:
-            title = i.title
-            print(f"✅ Störung behoben: {title}")
-            message = format_message(name, title, "resolved")
-            print("📤 Sende Tweet:", message)
-            await post_to_x(message)
+        for entry in resolved:
+            msg = format_message(name, entry.title, "resolved")
+            print("📤 Sende Tweet:", msg)
+            await post_to_x(msg)
 
         results[name] = {
             "new": len(new),
             "changed": len(changed),
-            "resolved": len(resolved)
+            "resolved": len(resolved),
         }
 
     print("🏁 Verarbeitung abgeschlossen:", results)
     return results
 
+
+# -------------------------
+# API-Endpunkte
+# -------------------------
 @app.post("/run")
 async def run_post(request: Request):
     token = request.query_params.get("token")
     return await process_run(token)
 
+
 @app.get("/run")
 async def run_get(request: Request):
     token = request.query_params.get("token")
     return await process_run(token)
-
-@app.get("/")
-async def root():
-    return {"message": "🚆 BVG und S-Bahn Bot läuft!", "status": "ok"}
-

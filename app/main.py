@@ -128,3 +128,8 @@ async def run_post(request: Request):
 async def run_get(request: Request):
     token = request.query_params.get("token")
     return await process_run(token)
+
+@app.get("/")
+async def root():
+    return {"message": "🚆 BVG und S-Bahn Bot läuft!", "status": "ok"}
+

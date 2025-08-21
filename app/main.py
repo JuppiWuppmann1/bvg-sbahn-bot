@@ -67,8 +67,7 @@ def process_run(token: str):
         ("BVG", scraper_bvg.fetch_html, scraper_bvg.parse_items),
         ("SBAHN", scraper_sbahn.fetch_html, scraper_sbahn.parse_items),
     ]:
-        html = fetch()
-        items = parse(html)
+        items = fetch_all_items()
         new, changed, resolved = diff_and_apply(items)
         for i in new:
             message = format_message(name, i.title, "new")

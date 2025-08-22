@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse
 from datetime import datetime
 import asyncio
 
@@ -14,13 +14,20 @@ app = FastAPI(title="BVG & S-Bahn Bot", version="1.0.0")
 
 
 # -------------------------
-# Startup / DB Init
+# Startup / DB Init + Scraper-Loop
 # -------------------------
 @app.on_event("startup")
-def startup():
+async def startup():
     print("🔧 Initialisiere Datenbank...")
     init_db()
     print("✅ Datenbank bereit.")
+
+    # Scraper-Loop nach kurzer Pause starten (wichtig für Render-Healthcheck)
+    async def delayed_start():
+        await asyncio.sleep(10)  # 10s Gnadenfrist für Render
+        asyncio.create_task(loop_scraper())
+
+    asyncio.create_task(delayed_start())
 
 
 # -------------------------
@@ -33,8 +40,10 @@ def health(_: Request):
 
 @app.api_route("/", methods=["GET", "HEAD"])
 async def root(_: Request):
-    # HEAD muss 200 liefern ohne Body
-    return JSONResponse(content={"message": "🚆 BVG und S-Bahn Bot läuft!", "status": "ok"}, status_code=200)
+    return JSONResponse(
+        content={"message": "🚆 BVG und S-Bahn Bot läuft!", "status": "ok"},
+        status_code=200,
+    )
 
 
 # -------------------------
@@ -159,11 +168,6 @@ async def loop_scraper():
         except Exception as e:
             print("❌ Fehler im Auto-Run:", e)
         await asyncio.sleep(300)  # alle 5 Minuten
-
-
-@app.on_event("startup")
-async def start_scraper_loop():
-    asyncio.create_task(loop_scraper())
 
 
 # -------------------------

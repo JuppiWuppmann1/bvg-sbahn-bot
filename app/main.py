@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from datetime import datetime
+import asyncio
 
 from .settings import settings
 from .storage import init_db
@@ -30,9 +31,10 @@ def health(_: Request):
     return JSONResponse(content={"ok": True}, status_code=200)
 
 
-@app.get("/")
-async def root():
-    return {"message": "🚆 BVG und S-Bahn Bot läuft!", "status": "ok"}
+@app.api_route("/", methods=["GET", "HEAD"])
+async def root(_: Request):
+    # HEAD muss 200 liefern ohne Body
+    return JSONResponse(content={"message": "🚆 BVG und S-Bahn Bot läuft!", "status": "ok"}, status_code=200)
 
 
 # -------------------------
@@ -51,7 +53,7 @@ KEYWORDS = {
 
 
 # -------------------------
-# Kategorie-Erkennung (dein Original)
+# Kategorie-Erkennung
 # -------------------------
 def detect_category(title: str) -> tuple[str, str, str]:
     title_lower = title.lower()
@@ -142,6 +144,26 @@ async def process_run(token: str | None):
 
     print("🏁 Verarbeitung abgeschlossen:", results)
     return results
+
+
+# -------------------------
+# Background-Loop (alle 5 Minuten)
+# -------------------------
+async def loop_scraper():
+    while True:
+        try:
+            if settings.RUN_TOKEN:
+                await process_run(settings.RUN_TOKEN)
+            else:
+                print("⚠️ Kein RUN_TOKEN gesetzt – überspringe Auto-Run")
+        except Exception as e:
+            print("❌ Fehler im Auto-Run:", e)
+        await asyncio.sleep(300)  # alle 5 Minuten
+
+
+@app.on_event("startup")
+async def start_scraper_loop():
+    asyncio.create_task(loop_scraper())
 
 
 # -------------------------

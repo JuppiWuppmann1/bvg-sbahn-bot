@@ -9,7 +9,14 @@ LIST_URL = f"{BASE_URL}/de/verbindungen/stoerungsmeldungen"
 HEADERS = {"User-Agent": settings.USER_AGENT}
 
 def fetch_html(url):
-    r = requests.get(url, headers=HEADERS, timeout=20)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/115.0 Safari/537.36",
+        "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
+    r = requests.get(url, headers=headers)
     r.raise_for_status()
     return r.text
 

@@ -13,53 +13,60 @@ def fetch_html(url):
     r.raise_for_status()
     return r.text
 
-def extract_detail_text(href):
-    if not href.startswith("http"):
-        href = BASE_URL + href
-    try:
-        html = fetch_html(href)
-        soup = BeautifulSoup(html, "html.parser")
-        detail = soup.select_one("main")  # oder spezifischer: ".content", ".teaser", etc.
-        return detail.get_text(" ", strip=True)[:1000] if detail else ""
-    except Exception:
-        return ""
+def extract_detail_text(_href: str):
+    # Bei den neuen BVG-Meldungen gibt es keine Detailseiten mehr → nur Headline
+    return ""
 
 def parse_items(html: str):
     soup = BeautifulSoup(html, "html.parser")
-    cards = soup.select("[data-cmp-is='teaser'], article, li")
+
+    # Jedes Störungskärtchen
+    cards = soup.select("div.NotificationItemVersionTwo_contentWrapper__Q2nB")
     items = []
+
     for c in cards:
-        title = (c.get_text(" ", strip=True) or "")[:300]
+        # Titel/Überschrift
+        title_el = c.select_one(".NotificationItemVersionTwo_headline__1jvz2")
+        title = title_el.get_text(" ", strip=True) if title_el else ""
         if not title:
             continue
-        a = c.find("a", href=True)
-        href = a["href"] if a else None
+
+        # Datum + Uhrzeit zusammensetzen
+        date_parts = [
+            d.get_text(" ", strip=True)
+            for d in c.select(".NotificationItemVersionTwo_moddateText__Y5lQ7")
+        ]
+        timestamp = " ".join(date_parts).strip()
+
+        # Linien herausziehen (U/S/M/Bus/Tram)
         m = re.search(r"(U\d+|S\d+|M\d+|Bus\s*\d+|Tram\s*\d+)", title)
         lines = m.group(0) if m else None
-        key = (title + (lines or "") + (href or "")).encode("utf-8")
+
+        # Eindeutige ID inkl. Zeitstempel, damit Updates erkannt werden
+        key = (title + (lines or "") + timestamp).encode("utf-8")
         _id = "BVG-" + hashlib.sha1(key).hexdigest()
+
+        # Content Hash nur auf Basis des Titels
         content_hash = hashlib.sha1(title.encode("utf-8")).hexdigest()
-        detail_text = extract_detail_text(href) if href else ""
+
         items.append({
-            "id": _id, "source": "BVG",
+            "id": _id,
+            "source": "BVG",
             "title": title,
             "lines": lines,
-            "url": href,
+            "url": None,         # kein Link vorhanden
             "content_hash": content_hash,
-            "detail": detail_text
+            "detail": title,     # Detailtext = Headline
+            "timestamp": timestamp
         })
+
     return items
 
 def fetch_all_items():
     all_items = []
-    page = 1
-    while True:
-        url = LIST_URL + f"?page={page}"
-        html = fetch_html(url)
-        items = parse_items(html)
-        if not items:
-            break
-        all_items.extend(items)
-        page += 1
-        time.sleep(1)  # höflich bleiben
+    # Bei BVG gibt es aktuell keine Pagination → nur eine Seite holen
+    html = fetch_html(LIST_URL)
+    items = parse_items(html)
+    all_items.extend(items)
+    time.sleep(1)
     return all_items

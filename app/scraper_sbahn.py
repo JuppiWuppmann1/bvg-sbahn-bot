@@ -29,28 +29,27 @@ def extract_lines(text):
     return re.findall(r"S\d{1,2}", text)
 
 def parse_incident(card):
-    title_el = card.select_one(".incident-title")
-    title = title_el.get_text(strip=True) if title_el else card.get_text(" ", strip=True)[:100]
-    detail = card.get_text(" ", strip=True)
+    title_el = card.select_one("h3.o-construction-announcement-title__heading")
+    title = title_el.get_text(strip=True) if title_el else ""
 
-    blacklist_keywords = ["Aufzug", "Fahrtreppe", "Bauinfos", "Fahrplanänderungen"]
-    if any(word.lower() in detail.lower() for word in blacklist_keywords):
-        return None
+    detail_el = card.select("p")
+    detail = " ".join(p.get_text(" ", strip=True) for p in detail_el)
 
-    if not any(s in detail for s in ["S1", "S2", "S25", "S26", "S3", "S41", "S42",
-                                     "S45", "S46", "S47", "S5", "S7", "S75",
-                                     "S8", "S85", "S9"]):
+    line_el = card.select_one("a.o-icon-css-line")
+    line = line_el.get_text(strip=True) if line_el else ""
+
+    if not title or not detail or not line:
         return None
 
     return {
         "title": title,
         "detail": detail,
-        "lines": extract_lines(detail)
+        "lines": [line]
     }
 
 def parse_items(html: str):
     soup = BeautifulSoup(html, "html.parser")
-    cards = soup.select("div.m-teaser")
+    cards = soup.select("div.c-construction-announcement-body")
     print("DEBUG SBAHN: Gefundene Cards:", len(cards))
 
     items = []

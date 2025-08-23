@@ -26,36 +26,28 @@ def extract_detail_text(_href: str):
 
 def parse_items(html: str):
     soup = BeautifulSoup(html, "html.parser")
-
-    # Jedes Störungskärtchen
-    cards = soup.select("div[class*='NotificationItemVersionTwo_contentWrapper']")
-    if not cards:
-        snippet = html[:500].replace("\n", " ")
-        print("DEBUG BVG: Keine Cards gefunden, HTML-Snippet:", snippet)
+    cards = soup.select("li.DisruptionsOverviewVersionTwo_item__GvWfq")
+    print("DEBUG BVG: Gefundene Cards:", len(cards))
 
     items = []
     for c in cards:
-        # Titel/Überschrift
-        title_el = c.select_one(".NotificationItemVersionTwo_headline__1jvz2")
-        title = title_el.get_text(" ", strip=True) if title_el else ""
+        title_el = c.select_one("h4")
+        title = title_el.get_text(strip=True) if title_el else ""
+
+        line_el = c.select_one("a._BdsSignetLine_8xinl_2")
+        lines = line_el.get_text(strip=True) if line_el else None
+
+        time_el = c.select_one("time")
+        timestamp = time_el.get_text(strip=True) if time_el else ""
+
+        detail_el = c.select_one("p")
+        detail = detail_el.get_text(strip=True) if detail_el else title
+
         if not title:
             continue
 
-        # Datum + Uhrzeit zusammensetzen
-        date_parts = [
-            d.get_text(" ", strip=True)
-            for d in c.select(".NotificationItemVersionTwo_moddateText__Y5lQ7")
-        ]
-        timestamp = " ".join(date_parts).strip()
-
-        # Linien herausziehen (U/S/M/Bus/Tram)
-        m = re.search(r"(U\d+|S\d+|M\d+|Bus\s*\d+|Tram\s*\d+)", title)
-        lines = m.group(0) if m else None
-
-        # Eindeutige ID inkl. Zeitstempel
         key = (title + (lines or "") + timestamp).encode("utf-8")
         _id = "BVG-" + hashlib.sha1(key).hexdigest()
-
         content_hash = hashlib.sha1(title.encode("utf-8")).hexdigest()
 
         items.append({
@@ -65,12 +57,13 @@ def parse_items(html: str):
             "lines": lines,
             "url": None,
             "content_hash": content_hash,
-            "detail": title,
+            "detail": detail,
             "timestamp": timestamp
         })
 
     print(f"DEBUG BVG: Items extrahiert: {len(items)}")
     return items
+
 
 def fetch_all_items():
     html = fetch_html(LIST_URL)

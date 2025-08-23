@@ -1,20 +1,20 @@
 import hashlib
 import time
-from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
 from .settings import settings
 
 BASE_URL = "https://sbahn.berlin"
 LIST_URL = f"{BASE_URL}/fahren/bauen-stoerung/"
 
-def fetch_rendered_html(url):
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        page.goto(url)
-        page.wait_for_selector("div.c-construction-announcement--disorder", timeout=10000)
-        html = page.content()
-        browser.close()
+async def fetch_rendered_html(url):
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
+        await page.goto(url)
+        await page.wait_for_selector("div.c-construction-announcement--disorder", timeout=10000)
+        html = await page.content()
+        await browser.close()
         return html
 
 def clean_detail(text: str) -> str:
@@ -81,8 +81,7 @@ def parse_items(html: str):
     print("DEBUG SBAHN: Items extrahiert:", len(items))
     return items
 
-def fetch_all_items():
-    html = fetch_rendered_html(LIST_URL)
+async def fetch_all_items():
+    html = await fetch_rendered_html(LIST_URL)
     time.sleep(1)
     return parse_items(html)
-

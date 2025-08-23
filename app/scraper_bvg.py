@@ -26,7 +26,7 @@ def extract_detail_text(_href: str):
 
 def parse_items(html: str):
     soup = BeautifulSoup(html, "html.parser")
-    cards = soup.select("li.DisruptionsOverviewVersionTwo_item__GvWfq")
+    cards = soup.select("li:has(h4):has(p)")
     print("DEBUG BVG: Gefundene Cards:", len(cards))
 
     items = []
@@ -34,13 +34,13 @@ def parse_items(html: str):
         title_el = c.select_one("h4")
         title = title_el.get_text(strip=True) if title_el else ""
 
-        line_el = c.select_one("a._BdsSignetLine_8xinl_2")
+        line_el = c.select_one("a")
         lines = line_el.get_text(strip=True) if line_el else None
 
         time_el = c.select_one("time")
         timestamp = time_el.get_text(strip=True) if time_el else ""
 
-        detail_el = c.select_one("p")
+        detail_el = c.select_one("p") or c.select_one("div")
         detail = detail_el.get_text(strip=True) if detail_el else title
 
         if not title:
@@ -63,6 +63,7 @@ def parse_items(html: str):
 
     print(f"DEBUG BVG: Items extrahiert: {len(items)}")
     return items
+
 
 
 def fetch_all_items():

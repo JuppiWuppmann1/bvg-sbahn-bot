@@ -1,28 +1,41 @@
 import hashlib, re, time
 import requests
+import cloudscraper
 from bs4 import BeautifulSoup
 from .settings import settings
 
 BASE_URL = "https://www.bvg.de"
 LIST_URL = f"{BASE_URL}/de/verbindungen/stoerungsmeldungen"
 
-HEADERS = {"User-Agent": settings.USER_AGENT}
+# Einheitliche Browser-Header
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                  "AppleWebKit/537.36 (KHTML, like Gecko) "
+                  "Chrome/115.0 Safari/537.36",
+    "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+}
 
-def fetch_html(url):
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                      "AppleWebKit/537.36 (KHTML, like Gecko) "
-                      "Chrome/115.0 Safari/537.36",
-        "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    }
-    r = requests.get(url, headers=headers)
-    r.raise_for_status()
-    return r.text
+def fetch_html(url: str) -> str:
+    """Versucht zuerst Cloudscraper (umgeht Cloudflare), fällt zurück auf requests."""
+    try:
+        scraper = cloudscraper.create_scraper(
+            browser={"browser": "chrome", "platform": "windows", "mobile": False}
+        )
+        r = scraper.get(url, headers=HEADERS, timeout=30)
+        r.raise_for_status()
+        return r.text
+    except Exception as e:
+        print(f"⚠️ Cloudscraper fehlgeschlagen ({e}), versuche requests...")
+        r = requests.get(url, headers=HEADERS, timeout=30)
+        r.raise_for_status()
+        return r.text
 
-def extract_detail_text(_href: str):
+
+def extract_detail_text(_href: str) -> str:
     # Bei den neuen BVG-Meldungen gibt es keine Detailseiten mehr → nur Headline
     return ""
+
 
 def parse_items(html: str):
     soup = BeautifulSoup(html, "html.parser")
@@ -69,6 +82,7 @@ def parse_items(html: str):
 
     return items
 
+
 def fetch_all_items():
     all_items = []
     # Bei BVG gibt es aktuell keine Pagination → nur eine Seite holen
@@ -77,3 +91,4 @@ def fetch_all_items():
     all_items.extend(items)
     time.sleep(1)
     return all_items
+

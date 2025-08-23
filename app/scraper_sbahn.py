@@ -20,10 +20,23 @@ def extract_detail_text(href):
     try:
         html = fetch_html(href)
         soup = BeautifulSoup(html, "html.parser")
-        detail = soup.select_one("main")
-        return detail.get_text(" ", strip=True)[:1000] if detail else ""
+
+        # Versuche zuerst den eigentlichen Beschreibungstext
+        detail_el = soup.select_one(".o-construction-detail__text")
+        if detail_el:
+            return detail_el.get_text(" ", strip=True)[:1000]
+
+        # Fallback: Ziehe nur <p>-Tags innerhalb von <main>, aber ohne Navigationsmüll
+        main = soup.select_one("main")
+        if main:
+            paragraphs = main.select("p")
+            text = " ".join(p.get_text(" ", strip=True) for p in paragraphs)
+            return text[:1000]
+
+        return ""
     except Exception:
         return ""
+
 
 def extract_lines(text):
     return re.findall(r"S\d{1,2}", text)

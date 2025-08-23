@@ -32,13 +32,10 @@ def parse_items(html: str):
         try:
             title_el = c.select_one("h3")
             title_text = title_el.get_text(strip=True) if title_el else ""
-
             line_links = c.select("a._BdsSignetLine_8xinl_2")
             lines = ", ".join([a.get_text(strip=True) for a in line_links]) if line_links else None
-
             time_tags = c.select("time")
             timestamp = time_tags[0].get("datetime") if time_tags else ""
-
             detail_paragraphs = c.select("div.NotificationItemVersionTwo_content__kw1Ui p")
             raw_detail = " ".join(p.get_text(strip=True) for p in detail_paragraphs) if detail_paragraphs else title_text
             detail_text = clean_detail(raw_detail)
@@ -68,7 +65,5 @@ def parse_items(html: str):
 
 async def fetch_all_items():
     html = await fetch_rendered_html(LIST_URL)
-    items = parse_items(html)
     time.sleep(1)
-    return items
-
+    return parse_items(html)

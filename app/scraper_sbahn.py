@@ -5,7 +5,6 @@ from .settings import settings
 
 BASE_URL = "https://sbahn.berlin"
 LIST_URL = f"{BASE_URL}/fahren/bauen-stoerung/"
-
 HEADERS = {"User-Agent": settings.USER_AGENT}
 
 def fetch_html(url):
@@ -26,37 +25,54 @@ def extract_detail_text(href):
     except Exception:
         return ""
 
+def extract_lines(text):
+    return re.findall(r"S\d{1,2}", text)
+
+def parse_incident(card):
+    title_el = card.select_one(".incident-title")
+    title = title_el.get_text(strip=True) if title_el else card.get_text(" ", strip=True)[:100]
+    detail = card.get_text(" ", strip=True)
+
+    blacklist_keywords = ["Aufzug", "Fahrtreppe", "Bauinfos", "Fahrplanänderungen"]
+    if any(word.lower() in detail.lower() for word in blacklist_keywords):
+        return None
+
+    if not any(s in detail for s in ["S1", "S2", "S25", "S26", "S3", "S41", "S42",
+                                     "S45", "S46", "S47", "S5", "S7", "S75",
+                                     "S8", "S85", "S9"]):
+        return None
+
+    return {
+        "title": title,
+        "detail": detail,
+        "lines": extract_lines(detail)
+    }
+
 def parse_items(html: str):
     soup = BeautifulSoup(html, "html.parser")
-
-    # Spezifischer Selektor für Teaser-Elemente
     cards = soup.select("div.m-teaser")
     print("DEBUG SBAHN: Gefundene Cards:", len(cards))
 
     items = []
     for c in cards:
-        title = (c.get_text(" ", strip=True) or "")[:300]
-        if not title:
+        incident = parse_incident(c)
+        if not incident:
             continue
 
         a = c.find("a", href=True)
         href = a["href"] if a else None
 
-        # Linien extrahieren (S1, S2, ...)
-        m = re.search(r"S\d+", title)
-        lines = m.group(0) if m else None
-
-        key = (title + (href or "")).encode("utf-8")
+        key = (incident["title"] + (href or "")).encode("utf-8")
         _id = "SBAHN-" + hashlib.sha1(key).hexdigest()
-        content_hash = hashlib.sha1(title.encode("utf-8")).hexdigest()
+        content_hash = hashlib.sha1(incident["title"].encode("utf-8")).hexdigest()
 
         detail_text = extract_detail_text(href) if href else ""
 
         items.append({
             "id": _id,
             "source": "SBAHN",
-            "title": title,
-            "lines": lines,
+            "title": incident["title"],
+            "lines": incident["lines"],
             "url": href,
             "content_hash": content_hash,
             "detail": detail_text
@@ -66,10 +82,5 @@ def parse_items(html: str):
     return items
 
 def fetch_all_items():
-    all_items = []
-    # Erste Seite reicht (Pagination selten genutzt bei S-Bahn)
     html = fetch_html(LIST_URL)
-    items = parse_items(html)
-    all_items.extend(items)
-    time.sleep(1)
-    return all_items
+    return parse_items(html)

@@ -21,7 +21,6 @@ def fetch_html(url):
     return r.text
 
 def clean_detail(text: str) -> str:
-    # Entferne doppelte Sätze und kürze auf 280 Zeichen
     sentences = list(dict.fromkeys(text.split(". ")))
     cleaned = ". ".join(sentences)
     return cleaned[:280]
@@ -75,4 +74,3 @@ def fetch_all_items():
     items = parse_items(html)
     time.sleep(1)
     return items
-

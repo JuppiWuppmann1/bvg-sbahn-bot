@@ -6,3 +6,4 @@ pydantic-settings
 requests
 beautifulsoup4
 twikit
+cloudscraper

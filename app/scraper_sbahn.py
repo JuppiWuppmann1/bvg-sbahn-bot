@@ -1,17 +1,21 @@
 import hashlib
 import time
-import requests
+from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 from .settings import settings
 
 BASE_URL = "https://sbahn.berlin"
 LIST_URL = f"{BASE_URL}/fahren/bauen-stoerung/"
-HEADERS = {"User-Agent": settings.USER_AGENT}
 
-def fetch_html(url):
-    r = requests.get(url, headers=HEADERS, timeout=20)
-    r.raise_for_status()
-    return r.text
+def fetch_rendered_html(url):
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(url)
+        page.wait_for_selector("div.c-construction-announcement--disorder", timeout=10000)
+        html = page.content()
+        browser.close()
+        return html
 
 def clean_detail(text: str) -> str:
     sentences = list(dict.fromkeys(text.split(". ")))
@@ -78,6 +82,7 @@ def parse_items(html: str):
     return items
 
 def fetch_all_items():
-    html = fetch_html(LIST_URL)
+    html = fetch_rendered_html(LIST_URL)
     time.sleep(1)
     return parse_items(html)
+

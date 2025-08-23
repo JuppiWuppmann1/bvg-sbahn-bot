@@ -19,12 +19,15 @@ def diff_and_apply(current_items):
 
         for it in deduped_items:
             current_ids.add(it["id"])
+            # Liste in kommagetrennten String umwandeln
+            lines_str = ", ".join(it["lines"]) if isinstance(it["lines"], list) else it["lines"]
+
             if it["id"] not in existing:
                 i = Incident(
                     id=it["id"],
                     source=it["source"],
                     title=it["title"],
-                    lines=it["lines"],
+                    lines=lines_str,
                     url=it["url"],
                     content_hash=it["content_hash"],
                     detail=it.get("detail", "")  # optionales Detailfeld
@@ -35,7 +38,7 @@ def diff_and_apply(current_items):
                 i = existing[it["id"]]
                 if i.content_hash != it["content_hash"]:
                     i.title = it["title"]
-                    i.lines = it["lines"]
+                    i.lines = lines_str
                     i.url = it["url"]
                     i.content_hash = it["content_hash"]
                     i.detail = it.get("detail", i.detail)

@@ -27,14 +27,16 @@ def extract_detail_text(_href: str):
 def parse_items(html: str):
     soup = BeautifulSoup(html, "html.parser")
 
-    # Selektor robuster machen (enthält NotificationItemVersionTwo)
+    # Jedes Störungskärtchen
     cards = soup.select("div[class*='NotificationItemVersionTwo_contentWrapper']")
-    print("DEBUG BVG: Gefundene Cards:", len(cards))
+    if not cards:
+        snippet = html[:500].replace("\n", " ")
+        print("DEBUG BVG: Keine Cards gefunden, HTML-Snippet:", snippet)
 
     items = []
     for c in cards:
         # Titel/Überschrift
-        title_el = c.select_one("[class*='NotificationItemVersionTwo_headline']")
+        title_el = c.select_one(".NotificationItemVersionTwo_headline__1jvz2")
         title = title_el.get_text(" ", strip=True) if title_el else ""
         if not title:
             continue
@@ -42,7 +44,7 @@ def parse_items(html: str):
         # Datum + Uhrzeit zusammensetzen
         date_parts = [
             d.get_text(" ", strip=True)
-            for d in c.select("[class*='NotificationItemVersionTwo_moddateText']")
+            for d in c.select(".NotificationItemVersionTwo_moddateText__Y5lQ7")
         ]
         timestamp = " ".join(date_parts).strip()
 
@@ -54,7 +56,6 @@ def parse_items(html: str):
         key = (title + (lines or "") + timestamp).encode("utf-8")
         _id = "BVG-" + hashlib.sha1(key).hexdigest()
 
-        # Content Hash nur auf Basis des Titels
         content_hash = hashlib.sha1(title.encode("utf-8")).hexdigest()
 
         items.append({
@@ -68,7 +69,7 @@ def parse_items(html: str):
             "timestamp": timestamp
         })
 
-    print("DEBUG BVG: Items extrahiert:", len(items))
+    print(f"DEBUG BVG: Items extrahiert: {len(items)}")
     return items
 
 def fetch_all_items():

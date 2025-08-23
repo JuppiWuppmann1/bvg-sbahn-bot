@@ -12,31 +12,21 @@ from .poster import post_to_x  # post_to_x muss async sein!
 
 app = FastAPI(title="BVG & S-Bahn Bot", version="1.0.0")
 
-
-# -------------------------
-# Startup / DB Init + Scraper-Loop
-# -------------------------
 @app.on_event("startup")
 async def startup():
     print("🔧 Initialisiere Datenbank...")
     init_db()
     print("✅ Datenbank bereit.")
 
-    # Scraper-Loop nach kurzer Pause starten (wichtig für Render-Healthcheck)
     async def delayed_start():
-        await asyncio.sleep(10)  # 10s Gnadenfrist für Render
+        await asyncio.sleep(10)
         asyncio.create_task(loop_scraper())
 
     asyncio.create_task(delayed_start())
 
-
-# -------------------------
-# Health Endpoints
-# -------------------------
 @app.api_route("/health", methods=["GET", "HEAD"])
 def health(_: Request):
     return JSONResponse(content={"ok": True}, status_code=200)
-
 
 @app.api_route("/", methods=["GET", "HEAD"])
 async def root(_: Request):
@@ -45,10 +35,6 @@ async def root(_: Request):
         status_code=200,
     )
 
-
-# -------------------------
-# Schlüsselwörter
-# -------------------------
 KEYWORDS = {
     "störung": ["störung", "unterbrechung", "ausfall", "defekt", "problem"],
     "baustelle": ["baustelle", "bauarbeiten", "bau", "arbeiten"],
@@ -60,10 +46,6 @@ KEYWORDS = {
     "polizei": ["polizei", "einsatz", "kripo", "ermittlung", "sicherheitslage"],
 }
 
-
-# -------------------------
-# Kategorie-Erkennung
-# -------------------------
 def detect_category(title: str) -> tuple[str, str, str]:
     title_lower = title.lower()
     for category, synonyms in KEYWORDS.items():
@@ -86,53 +68,33 @@ def detect_category(title: str) -> tuple[str, str, str]:
                 return "🚓", "Polizeieinsatz", "#Polizei"
     return "ℹ️", "Info", "#Info"
 
-
-# -------------------------
-# Nachricht Formatieren
-# -------------------------
 def format_message(name: str, title: str, status: str, timestamp: datetime | None = None, detail: str | None = None) -> str:
     emoji, label, tag = detect_category(title)
-
-    if status == "new":
-        prefix = f"{emoji} [{name}] NEU ({label}):"
-    elif status == "resolved":
-        prefix = f"✅ [{name}] ENDE ({label}):"
-    else:
-        prefix = f"🔔 [{name}] UPDATE ({label}):"
+    prefix = {
+        "new": f"{emoji} [{name}] NEU ({label}):",
+        "resolved": f"✅ [{name}] ENDE ({label}):",
+    }.get(status, f"🔔 [{name}] UPDATE ({label}):")
 
     source_tag = "#BVG" if name.upper() == "BVG" else "#SBAHN"
-
-    if not timestamp:
-        timestamp = datetime.now()
+    timestamp = timestamp or datetime.now()
     time_str = timestamp.strftime("%d.%m.%Y, %H:%M Uhr")
-
-    # Detail optional anhängen
     detail_text = f"\n📝 {detail}" if detail else ""
 
     return f"{prefix} {title}{detail_text}\n📅 {time_str}\n{source_tag} {tag}"
 
-
-# -------------------------
-# Hauptprozess
-# -------------------------
 async def process_run(token: str | None):
     if not token:
         raise HTTPException(status_code=400, detail="token required")
-
     if settings.RUN_TOKEN and token != settings.RUN_TOKEN:
         print("❌ Ungültiger Token:", token)
         raise HTTPException(status_code=401, detail="bad token")
 
     print("🚀 Starte Verarbeitung...")
-
     results: dict[str, dict[str, int]] = {}
 
-    for name, fetch_items in [
-        ("BVG", fetch_bvg_items),
-        ("SBAHN", fetch_sbahn_items),
-    ]:
+    for name, fetch_items in [("BVG", fetch_bvg_items), ("SBAHN", fetch_sbahn_items)]:
         print(f"📡 Lade Daten von {name}...")
-        items = fetch_items()
+        items = await fetch_items()
         print(f"✅ {len(items)} Einträge geladen von {name}")
 
         new, changed, resolved = diff_and_apply(items)
@@ -145,10 +107,8 @@ async def process_run(token: str | None):
 
         for entry in resolved:
             msg = format_message(entry.source, entry.title, "resolved", detail=entry.detail)
-            print(f"[DEBUG] Resolved Tweet für {entry.id} mit Quelle {entry.source}")
             print("📤 Sende Tweet:", msg)
             await post_to_x(msg)
-
 
         results[name] = {
             "new": len(new),
@@ -159,10 +119,6 @@ async def process_run(token: str | None):
     print("🏁 Verarbeitung abgeschlossen:", results)
     return results
 
-
-# -------------------------
-# Background-Loop (alle 5 Minuten)
-# -------------------------
 async def loop_scraper():
     while True:
         try:
@@ -172,17 +128,12 @@ async def loop_scraper():
                 print("⚠️ Kein RUN_TOKEN gesetzt – überspringe Auto-Run")
         except Exception as e:
             print("❌ Fehler im Auto-Run:", e)
-        await asyncio.sleep(300)  # alle 5 Minuten
+        await asyncio.sleep(300)
 
-
-# -------------------------
-# API-Endpunkte
-# -------------------------
 @app.post("/run")
 async def run_post(request: Request):
     token = request.query_params.get("token")
     return await process_run(token)
-
 
 @app.get("/run")
 async def run_get(request: Request):

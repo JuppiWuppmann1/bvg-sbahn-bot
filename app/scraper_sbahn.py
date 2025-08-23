@@ -67,11 +67,14 @@ def parse_items(html: str):
 
         detail_text = extract_detail_text(href) if href else ""
 
+        # Convert lines list to string for DB compatibility
+        lines_str = ", ".join(incident["lines"]) if isinstance(incident["lines"], list) else incident["lines"]
+
         items.append({
             "id": _id,
             "source": "SBAHN",
             "title": incident["title"],
-            "lines": incident["lines"],
+            "lines": lines_str,
             "url": href,
             "content_hash": content_hash,
             "detail": detail_text
@@ -83,3 +86,4 @@ def parse_items(html: str):
 def fetch_all_items():
     html = fetch_html(LIST_URL)
     return parse_items(html)
+

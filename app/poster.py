@@ -51,3 +51,9 @@ def post_via_service(text: str):
         print("❌ Fehler beim Senden an Tweet-Service:", e)
 
 async def post_to_x(text: str, use_service: bool = False):
+    print("🚀 Starte Tweet-Vorgang...")
+    if use_service:
+        post_via_service(text)
+    else:
+        await async_post_twikit(text)
+

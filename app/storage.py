@@ -18,8 +18,18 @@ class Incident(Base):
     content_hash = Column(String, nullable=False)
     detail = Column(Text, nullable=True)
 
-engine = create_engine(settings.DATABASE_URL, future=True)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+engine = create_engine(
+    settings.DATABASE_URL,
+    future=True,
+    pool_pre_ping=True  # verhindert "stale connections"
+)
+
+SessionLocal = sessionmaker(
+    bind=engine,
+    autoflush=False,
+    autocommit=False,
+    expire_on_commit=False  # <-- wichtig
+)
 
 def init_db():
     Base.metadata.create_all(engine)

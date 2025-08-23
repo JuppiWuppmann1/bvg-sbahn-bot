@@ -90,7 +90,7 @@ def detect_category(title: str) -> tuple[str, str, str]:
 # -------------------------
 # Nachricht Formatieren
 # -------------------------
-def format_message(name: str, title: str, status: str, timestamp: datetime | None = None) -> str:
+def format_message(name: str, title: str, status: str, timestamp: datetime | None = None, detail: str | None = None) -> str:
     emoji, label, tag = detect_category(title)
 
     if status == "new":
@@ -106,7 +106,10 @@ def format_message(name: str, title: str, status: str, timestamp: datetime | Non
         timestamp = datetime.now()
     time_str = timestamp.strftime("%d.%m.%Y, %H:%M Uhr")
 
-    return f"{prefix} {title}\n📅 {time_str}\n{source_tag} {tag}"
+    # Detail optional anhängen
+    detail_text = f"\n📝 {detail}" if detail else ""
+
+    return f"{prefix} {title}{detail_text}\n📅 {time_str}\n{source_tag} {tag}"
 
 
 # -------------------------
@@ -136,14 +139,16 @@ async def process_run(token: str | None):
         print(f"🆕 Neue: {len(new)}, 🔄 Geändert: {len(changed)}, ✅ Gelöst: {len(resolved)}")
 
         for entry in new:
-            msg = format_message(name, entry.title, "new")
+            msg = format_message(entry.source, entry.title, "new", detail=entry.detail)
             print("📤 Sende Tweet:", msg)
             await post_to_x(msg)
 
         for entry in resolved:
-            msg = format_message(name, entry.title, "resolved")
+            msg = format_message(entry.source, entry.title, "resolved", detail=entry.detail)
+            print(f"[DEBUG] Resolved Tweet für {entry.id} mit Quelle {entry.source}")
             print("📤 Sende Tweet:", msg)
             await post_to_x(msg)
+
 
         results[name] = {
             "new": len(new),

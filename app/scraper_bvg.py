@@ -1,24 +1,21 @@
 import hashlib
 import time
-import requests
+from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 from .settings import settings
 
 BASE_URL = "https://www.bvg.de"
 LIST_URL = f"{BASE_URL}/de/verbindungen/stoerungsmeldungen"
-HEADERS = {"User-Agent": settings.USER_AGENT}
 
-def fetch_html(url):
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                      "AppleWebKit/537.36 (KHTML, like Gecko) "
-                      "Chrome/115.0 Safari/537.36",
-        "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    }
-    r = requests.get(url, headers=headers, timeout=20)
-    r.raise_for_status()
-    return r.text
+def fetch_rendered_html(url):
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(url)
+        page.wait_for_selector("li.DisruptionsOverviewVersionTwo_item__GvWfq", timeout=10000)
+        html = page.content()
+        browser.close()
+        return html
 
 def clean_detail(text: str) -> str:
     sentences = list(dict.fromkeys(text.split(". ")))
@@ -70,7 +67,7 @@ def parse_items(html: str):
     return items
 
 def fetch_all_items():
-    html = fetch_html(LIST_URL)
+    html = fetch_rendered_html(LIST_URL)
     items = parse_items(html)
     time.sleep(1)
     return items

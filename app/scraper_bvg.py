@@ -27,44 +27,48 @@ def clean_detail(text: str) -> str:
 
 def parse_items(html: str):
     soup = BeautifulSoup(html, "html.parser")
-    cards = soup.select("li:has(h4):has(p)")
+    cards = soup.select("li.DisruptionsOverviewVersionTwo_item__GvWfq")
     print("DEBUG BVG: Gefundene Cards:", len(cards))
 
     items = []
     for c in cards:
-        title = c.select_one("h4")
-        title_text = title.get_text(strip=True) if title else ""
+        try:
+            title_el = c.select_one("h3")
+            title_text = title_el.get_text(strip=True) if title_el else ""
 
-        line = c.select_one("a")
-        lines = line.get_text(strip=True) if line else None
+            line_links = c.select("a._BdsSignetLine_8xinl_2")
+            lines = ", ".join([a.get_text(strip=True) for a in line_links]) if line_links else None
 
-        time_el = c.select_one("time")
-        timestamp = time_el.get_text(strip=True) if time_el else ""
+            time_el = c.select_one("time")
+            timestamp = time_el.get("datetime") if time_el else ""
 
-        detail_el = c.select_one("p") or c.select_one("div")
-        raw_detail = detail_el.get_text(strip=True) if detail_el else title_text
-        detail_text = clean_detail(raw_detail)
+            detail_el = c.select_one("div.NotificationItemVersionTwo_content__kw1Ui p")
+            raw_detail = detail_el.get_text(strip=True) if detail_el else title_text
+            detail_text = clean_detail(raw_detail)
 
-        if not title_text:
-            continue
+            if not title_text:
+                continue
 
-        key = (title_text + (lines or "") + timestamp).encode("utf-8")
-        _id = "BVG-" + hashlib.sha1(key).hexdigest()
-        content_hash = hashlib.sha1(title_text.encode("utf-8")).hexdigest()
+            key = (title_text + (lines or "") + timestamp).encode("utf-8")
+            _id = "BVG-" + hashlib.sha1(key).hexdigest()
+            content_hash = hashlib.sha1(title_text.encode("utf-8")).hexdigest()
 
-        items.append({
-            "id": _id,
-            "source": "BVG",
-            "title": title_text,
-            "lines": lines,
-            "url": None,
-            "content_hash": content_hash,
-            "detail": detail_text,
-            "timestamp": timestamp
-        })
+            items.append({
+                "id": _id,
+                "source": "BVG",
+                "title": title_text,
+                "lines": lines,
+                "url": None,
+                "content_hash": content_hash,
+                "detail": detail_text,
+                "timestamp": timestamp
+            })
+        except Exception as e:
+            print(f"⚠️ Fehler beim Parsen eines Eintrags: {e}")
 
     print(f"DEBUG BVG: Items extrahiert: {len(items)}")
     return items
+
 
 def fetch_all_items():
     html = fetch_html(LIST_URL)

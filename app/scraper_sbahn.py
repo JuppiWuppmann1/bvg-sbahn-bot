@@ -1,4 +1,5 @@
-import hashlib, re, time
+import hashlib
+import time
 import requests
 from bs4 import BeautifulSoup
 from .settings import settings
@@ -13,7 +14,6 @@ def fetch_html(url):
     return r.text
 
 def clean_detail(text: str) -> str:
-    # Entferne doppelte Sätze und kürze auf 280 Zeichen
     sentences = list(dict.fromkeys(text.split(". ")))
     cleaned = ". ".join(sentences)
     return cleaned[:280]

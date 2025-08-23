@@ -2,11 +2,11 @@ services:
   - type: web
     name: bvg-sbahn-bot
     env: python
-    plan: free             # oder starter/standard je nach Bedarf
+    plan: free
     buildCommand: |
       pip install --upgrade pip
       pip install -r requirements.txt
-      playwright install
+      playwright install  # <--- Diese Zeile ist entscheidend!
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
 envVars:
@@ -22,7 +22,6 @@ envVars:
     sync: false
   - key: TWIKIT_PASSWORD
     sync: false
-
 
 databases:
   - name: bot-db

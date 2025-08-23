@@ -17,9 +17,9 @@ async def ensure_login():
 
         print("🔑 Kein Cookie vorhanden – führe Login durch...")
         await client.login(
-            auth_info_1=settings.X_USERNAME,
-            auth_info_2=settings.X_EMAIL,
-            password=settings.X_PASSWORD,
+            auth_info_1=settings.TWIKIT_USERNAME,
+            auth_info_2=settings.TWIKIT_EMAIL,
+            password=settings.TWIKIT_PASSWORD,
         )
         client.save_cookies(str(COOKIE_FILE))
         print("✅ Login erfolgreich und Cookies gespeichert")

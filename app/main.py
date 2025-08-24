@@ -1,7 +1,16 @@
+import os
+import subprocess
+import asyncio
+from datetime import datetime
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
-from datetime import datetime
-import asyncio
+
+# Chromium installieren, falls nicht vorhanden
+chromium_path = "/opt/render/.cache/ms-playwright/chromium_headless_shell-1181/chrome-linux/headless_shell"
+if not os.path.exists(chromium_path):
+    print("🔧 Installiere Chromium für Playwright...")
+    subprocess.run(["playwright", "install", "chromium"], check=True)
+    print("✅ Chromium installiert.")
 
 from .settings import settings
 from .storage import init_db
@@ -139,3 +148,4 @@ async def run_post(request: Request):
 async def run_get(request: Request):
     token = request.query_params.get("token")
     return await process_run(token)
+

@@ -8,11 +8,11 @@ Base = declarative_base()
 class Incident(Base):
     __tablename__ = "incidents"
     id = Column(String, primary_key=True)
-    source = Column(String, nullable=False)   # BVG oder SBAHN
+    source = Column(String, nullable=False)  # BVG | SBAHN
     title = Column(Text, nullable=False)
     lines = Column(String, nullable=True)
     url = Column(String, nullable=True)
-    status = Column(String, default="active") # active | resolved
+    status = Column(String, default="active")  # active | resolved
     first_seen = Column(DateTime, default=datetime.utcnow)
     last_seen = Column(DateTime, default=datetime.utcnow)
     content_hash = Column(String, nullable=False)
@@ -21,16 +21,15 @@ class Incident(Base):
 engine = create_engine(
     settings.DATABASE_URL,
     future=True,
-    pool_pre_ping=True  # verhindert "stale connections"
+    pool_pre_ping=True
 )
 
 SessionLocal = sessionmaker(
     bind=engine,
     autoflush=False,
     autocommit=False,
-    expire_on_commit=False  # <-- wichtig
+    expire_on_commit=False  # wichtig für Zugriff nach commit()
 )
 
 def init_db():
     Base.metadata.create_all(engine)
-

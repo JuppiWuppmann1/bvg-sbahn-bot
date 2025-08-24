@@ -7,25 +7,33 @@ from .settings import settings
 BASE_URL = "https://www.bvg.de"
 LIST_URL = f"{BASE_URL}/de/verbindungen/stoerungsmeldungen"
 
-async def fetch_rendered_html(url):
+async def fetch_all_pages(base_url):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
-        await page.goto(url)
-        await page.wait_for_selector("li.DisruptionsOverviewVersionTwo_item__GvWfq", timeout=10000)
 
-        # Alle Buttons mit aria-expanded="false" klicken
-        buttons = await page.query_selector_all('button[aria-expanded="false"]')
-        for btn in buttons:
-            try:
-                await btn.click()
-                await page.wait_for_timeout(300)  # Warte kurz auf DOM-Update
-            except Exception as e:
-                print(f"⚠️ Fehler beim Klick auf Button: {e}")
+        all_html = []
 
-        html = await page.content()
+        for page_num in range(1, 6):  # Seiten 1 bis 5
+            url = f"{base_url}?page={page_num}"
+            print(f"🔄 Lade Seite {page_num}: {url}")
+            await page.goto(url)
+            await page.wait_for_selector("li.DisruptionsOverviewVersionTwo_item__GvWfq", timeout=10000)
+
+            # Alle Buttons mit aria-expanded="false" klicken
+            buttons = await page.query_selector_all('button[aria-expanded="false"]')
+            for btn in buttons:
+                try:
+                    await btn.click()
+                    await page.wait_for_timeout(300)
+                except Exception as e:
+                    print(f"⚠️ Fehler beim Klick auf Button: {e}")
+
+            html = await page.content()
+            all_html.append(html)
+
         await browser.close()
-        return html
+        return all_html
 
 def clean_detail(text: str) -> str:
     sentences = list(dict.fromkeys(text.split(". ")))
@@ -74,6 +82,13 @@ def parse_items(html: str):
     return items
 
 async def fetch_all_items():
-    html = await fetch_rendered_html(LIST_URL)
+    html_pages = await fetch_all_pages(LIST_URL)
     time.sleep(1)
-    return parse_items(html)
+
+    all_items = []
+    for html in html_pages:
+        items = parse_items(html)
+        all_items.extend(items)
+
+    return all_items
+

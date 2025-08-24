@@ -8,31 +8,36 @@ from .settings import settings
 BASE_URL = "https://www.bvg.de"
 LIST_URL = f"{BASE_URL}/de/verbindungen/stoerungsmeldungen"
 
-# 🛡️ Robuste Klick-Funktion mit Sichtbarkeitsprüfung und Retry
-async def safe_click_visible_buttons(buttons, retries=3):
+# 🛡️ Robuste Klick-Funktion mit Scroll & Sichtbarkeit
+async def safe_click_visible_buttons(page, buttons, retries=3):
     for i, btn in enumerate(buttons):
-        box = await btn.bounding_box()
-        if not box:
-            print(f"⛔️ Button {i+1} hat keine sichtbare Bounding Box – wird übersprungen.")
-            continue
+        try:
+            if not await btn.is_visible():
+                print(f"⛔️ Button {i+1} ist nicht sichtbar – wird übersprungen.")
+                continue
 
-        for attempt in range(retries):
-            try:
-                await btn.click(force=True)
-                print(f"✅ Klick auf Button {i+1} erfolgreich.")
-                await asyncio.sleep(0.3)
-                break
-            except Exception as e:
-                print(f"⚠️ Versuch {attempt+1} für Button {i+1} fehlgeschlagen: {e}")
-                await asyncio.sleep(0.5 * (attempt + 1))
-        else:
-            print(f"❌ Button {i+1} konnte nicht geklickt werden – wird übersprungen.")
+            await btn.scroll_into_view_if_needed()
+            await page.evaluate("(el) => el.scrollIntoView({behavior: 'auto', block: 'center'})", btn)
 
-# 🔄 Seitenabruf mit Detailbox-Handling
+            for attempt in range(retries):
+                try:
+                    await btn.click(force=True)
+                    print(f"✅ Klick auf Button {i+1} erfolgreich.")
+                    await asyncio.sleep(0.3)
+                    break
+                except Exception as e:
+                    print(f"⚠️ Versuch {attempt+1} für Button {i+1} fehlgeschlagen: {e}")
+                    await asyncio.sleep(0.5 * (attempt + 1))
+            else:
+                print(f"❌ Button {i+1} konnte nicht geklickt werden – wird übersprungen.")
+        except Exception as e:
+            print(f"⚠️ Fehler bei Button {i+1}: {e}")
+
+# 🔄 Seitenabruf mit automatischem Scroll
 async def fetch_all_pages(base_url):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
+        page = await browser.new_page(viewport={"width": 1920, "height": 3000})
 
         all_html = []
 
@@ -42,9 +47,20 @@ async def fetch_all_pages(base_url):
             await page.goto(url)
             await page.wait_for_selector("li.DisruptionsOverviewVersionTwo_item__GvWfq", timeout=10000)
 
+            # Automatisch scrollen, um alle Buttons sichtbar zu machen
+            await page.evaluate("""
+                let scrollInterval = setInterval(() => {
+                    window.scrollBy(0, 300);
+                    if (window.scrollY + window.innerHeight >= document.body.scrollHeight) {
+                        clearInterval(scrollInterval);
+                    }
+                }, 100);
+            """)
+            await asyncio.sleep(2)
+
             buttons = await page.query_selector_all('button[aria-expanded="false"]')
             print(f"➡️ Gefundene Detail-Buttons: {len(buttons)}")
-            await safe_click_visible_buttons(buttons)
+            await safe_click_visible_buttons(page, buttons)
 
             html = await page.content()
             all_html.append(html)
@@ -111,4 +127,3 @@ async def fetch_all_items():
         all_items.extend(items)
 
     return all_items
-

@@ -24,10 +24,11 @@ async def fetch_all_pages(base_url):
             buttons = await page.query_selector_all('button[aria-expanded="false"]')
             for btn in buttons:
                 try:
-                    await btn.click()
+                    await btn.click(force=True)
                     await page.wait_for_timeout(300)
                 except Exception as e:
-                    print(f"⚠️ Fehler beim Klick auf Button: {e}")
+                    print(f"⚠️ Fehler beim erzwungenen Klick: {e}")
+
 
             html = await page.content()
             all_html.append(html)

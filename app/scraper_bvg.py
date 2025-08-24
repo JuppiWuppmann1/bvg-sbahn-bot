@@ -1,5 +1,6 @@
 import hashlib
 import time
+import asyncio
 from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
 from .settings import settings
@@ -7,6 +8,20 @@ from .settings import settings
 BASE_URL = "https://www.bvg.de"
 LIST_URL = f"{BASE_URL}/de/verbindungen/stoerungsmeldungen"
 
+# 🛡️ Robuste Klick-Funktion mit Retry und Scroll
+async def safe_click(btn, retries=5):
+    for attempt in range(retries):
+        try:
+            await btn.scroll_into_view_if_needed()
+            await btn.click(force=True)
+            return True
+        except Exception as e:
+            print(f"⚠️ Versuch {attempt+1} fehlgeschlagen: {e}")
+            await asyncio.sleep(0.5 * (attempt + 1))
+    print("❌ Button konnte nicht geklickt werden – wird übersprungen.")
+    return False
+
+# 🔄 Seitenabruf mit sicherem Button-Klick
 async def fetch_all_pages(base_url):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -14,21 +29,17 @@ async def fetch_all_pages(base_url):
 
         all_html = []
 
-        for page_num in range(1, 6):  # Seiten 1 bis 5
+        for page_num in range(1, 6):
             url = f"{base_url}?page={page_num}"
             print(f"🔄 Lade Seite {page_num}: {url}")
             await page.goto(url)
             await page.wait_for_selector("li.DisruptionsOverviewVersionTwo_item__GvWfq", timeout=10000)
 
-            # Alle Buttons mit aria-expanded="false" klicken
             buttons = await page.query_selector_all('button[aria-expanded="false"]')
-            for btn in buttons:
-                try:
-                    await btn.click(force=True)
-                    await page.wait_for_timeout(300)
-                except Exception as e:
-                    print(f"⚠️ Fehler beim erzwungenen Klick: {e}")
-
+            for i, btn in enumerate(buttons):
+                print(f"➡️ Versuche Klick auf Button {i+1}")
+                await safe_click(btn)
+                await page.wait_for_timeout(300)
 
             html = await page.content()
             all_html.append(html)
@@ -36,11 +47,13 @@ async def fetch_all_pages(base_url):
         await browser.close()
         return all_html
 
+# 🧼 Textbereinigung
 def clean_detail(text: str) -> str:
     sentences = list(dict.fromkeys(text.split(". ")))
     cleaned = ". ".join(sentences)
     return cleaned[:280]
 
+# 🧠 HTML-Parsing
 def parse_items(html: str):
     soup = BeautifulSoup(html, "html.parser")
     cards = soup.select("li.DisruptionsOverviewVersionTwo_item__GvWfq")
@@ -82,6 +95,7 @@ def parse_items(html: str):
     print(f"DEBUG BVG: Items extrahiert: {len(items)}")
     return items
 
+# 🚀 Hauptfunktion zum Abrufen aller Items
 async def fetch_all_items():
     html_pages = await fetch_all_pages(LIST_URL)
     time.sleep(1)
@@ -92,4 +106,3 @@ async def fetch_all_items():
         all_items.extend(items)
 
     return all_items
-

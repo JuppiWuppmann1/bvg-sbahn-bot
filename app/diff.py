@@ -15,13 +15,12 @@ def diff_and_apply(scraped_items: List[Dict]) -> Tuple[List[Entry], List[Entry],
     Gibt zurück: (neu, geändert, gelöst).
     """
     stored_entries = {e["id"]: e for e in get_all_entries()}
-    scraped_ids = {item["id"] for item in scraped_items}
-
+    scraped_ids = set()
+    
     new_entries: List[Entry] = []
     changed_entries: List[Entry] = []
     resolved_entries: List[Entry] = []
 
-    # Neue oder geänderte Einträge
     for item in scraped_items:
         entry = Entry(
             id=item["id"],
@@ -30,19 +29,19 @@ def diff_and_apply(scraped_items: List[Dict]) -> Tuple[List[Entry], List[Entry],
             detail=item.get("detail", ""),
             content_hash=item["content_hash"],
         )
+        scraped_ids.add(entry.id)
 
-        if entry.id not in stored_entries:
-            # Neu
+        stored = stored_entries.get(entry.id)
+        if not stored:
+            # Neuer Eintrag
             save_entry(entry)
             new_entries.append(entry)
-        else:
-            stored = stored_entries[entry.id]
-            if stored["content_hash"] != entry.content_hash:
-                # Geändert
-                save_entry(entry)
-                changed_entries.append(entry)
+        elif stored["content_hash"] != entry.content_hash:
+            # Geänderter Eintrag
+            save_entry(entry)
+            changed_entries.append(entry)
 
-    # Aufgelöste Einträge
+    # Aufgelöste Einträge (nicht mehr im aktuellen Lauf vorhanden)
     for stored_id, stored in stored_entries.items():
         if stored_id not in scraped_ids:
             mark_resolved(stored_id)

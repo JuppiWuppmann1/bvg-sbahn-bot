@@ -7,12 +7,11 @@ services:
       pip install --upgrade pip
       pip install -r requirements.txt
       python -m playwright install
-
     startCommand: |
       python -m playwright install
       uvicorn app.main:app --host 0.0.0.0 --port $PORT
-
     healthCheckPath: /health
+
 envVars:
   - key: DATABASE_URL
     fromDatabase:
@@ -25,6 +24,10 @@ envVars:
   - key: TWIKIT_EMAIL
     sync: false
   - key: TWIKIT_PASSWORD
+    sync: false
+  - key: TWEET_SERVICE_URL
+    value: https://tweet-service.onrender.com/tweet
+  - key: TWEET_API_KEY
     sync: false
 
 databases:

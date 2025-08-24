@@ -4,18 +4,19 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # Sicherheit
     RUN_TOKEN: str
-    USER_AGENT: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+    USER_AGENT: str = "Mozilla/5.0 (...)"
 
     # Twikit Account-Daten
     TWIKIT_USERNAME: str
     TWIKIT_PASSWORD: str
     TWIKIT_EMAIL: str
 
-    # Optional: Pfad zur gespeicherten Session (damit Login nicht jedes Mal neu nötig ist)
+    # Optional
     SESSION_FILE: str = "twikit_session.json"
-
-    # Datenbank: Fallback auf SQLite, falls nichts gesetzt ist
     DATABASE_URL: str = "sqlite:///./app.db"
+
+    # Tweet-Service
+    TWEET_SERVICE_URL: str  # <––– Das fehlt aktuell!
 
     class Config:
         env_file = ".env"

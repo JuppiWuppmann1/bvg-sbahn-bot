@@ -19,92 +19,49 @@ async def scroll_page_to_bottom(page, step=300, delay=0.1):
             break
         previous_height = new_height
 
-# 🛡️ Klickt Buttons sicher mit Scroll & Fallback
-async def safe_click_visible_buttons(page, buttons, retries=3):
-    for i, btn in enumerate(buttons):
-        try:
-            if not await btn.is_visible():
-                print(f"⛔️ Button {i+1} ist nicht sichtbar – wird übersprungen.")
-                continue
-
-            await btn.scroll_into_view_if_needed()
-            await page.evaluate("(el) => el.scrollIntoView({behavior: 'auto', block: 'center'})", btn)
-
-            for attempt in range(retries):
-                try:
-                    await btn.click(force=True)
-                    print(f"✅ Klick auf Button {i+1} erfolgreich.")
-                    await asyncio.sleep(0.3)
-                    break
-                except Exception as e:
-                    print(f"⚠️ Versuch {attempt+1} für Button {i+1} fehlgeschlagen: {e}")
-                    await asyncio.sleep(0.5 * (attempt + 1))
-            else:
-                # Fallback: Klick per JS
-                try:
-                    await page.evaluate("(el) => el.click()", btn)
-                    print(f"🧪 JS-Klick auf Button {i+1} erfolgreich.")
-                except Exception as e:
-                    print(f"❌ Button {i+1} konnte nicht geklickt werden – wird übersprungen. Fehler: {e}")
-        except Exception as e:
-            print(f"⚠️ Fehler bei Button {i+1}: {e}")
-
-# 🔄 Holt HTML von allen Seiten
-async def fetch_all_pages(base_url):
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page(viewport={"width": 1920, "height": 3000})
-
-        all_html = []
-
-        for page_num in range(1, 6):
-            url = f"{base_url}?page={page_num}"
-            print(f"🔄 Lade Seite {page_num}: {url}")
-            await page.goto(url)
-            await page.wait_for_selector("li.DisruptionsOverviewVersionTwo_item__GvWfq", timeout=10000)
-
-            await scroll_page_to_bottom(page)
-            await asyncio.sleep(1)
-
-            buttons = await page.query_selector_all('button[aria-expanded="false"]')
-            print(f"➡️ Gefundene Detail-Buttons: {len(buttons)}")
-            await safe_click_visible_buttons(page, buttons)
-
-            html = await page.content()
-            all_html.append(html)
-
-        await browser.close()
-        return all_html
-
 # 🧼 Bereinigt Text
 def clean_detail(text: str) -> str:
     sentences = list(dict.fromkeys(text.split(". ")))
     cleaned = ". ".join(sentences)
     return cleaned[:280]
 
-# 🧠 Extrahiert Störungsmeldungen
-def parse_items(html: str):
-    soup = BeautifulSoup(html, "html.parser")
-    cards = soup.select("li.DisruptionsOverviewVersionTwo_item__GvWfq")
-    print("DEBUG BVG: Gefundene Cards:", len(cards))
+# 🧠 Extrahiert Items direkt nach Klick
+async def extract_items_from_page(page):
+    await page.wait_for_selector("li.DisruptionsOverviewVersionTwo_item__GvWfq", timeout=10000)
+    await scroll_page_to_bottom(page)
+    await asyncio.sleep(1)
+
+    cards = await page.query_selector_all("li.DisruptionsOverviewVersionTwo_item__GvWfq")
+    print(f"🔍 Gefundene Cards: {len(cards)}")
 
     items = []
-    for c in cards:
-        try:
-            title_el = c.select_one("h3")
-            title_text = title_el.get_text(strip=True) if title_el else ""
-            line_links = c.select("a._BdsSignetLine_8xinl_2")
-            lines = ", ".join([a.get_text(strip=True) for a in line_links]) if line_links else None
-            time_tags = c.select("time")
-            timestamp = time_tags[0].get("datetime") if time_tags else ""
-            detail_paragraphs = c.select("div.NotificationItemVersionTwo_content__kw1Ui p")
-            raw_detail = " ".join(p.get_text(strip=True) for p in detail_paragraphs) if detail_paragraphs else title_text
-            detail_text = clean_detail(raw_detail)
 
-            if not title_text:
+    for i, card in enumerate(cards):
+        try:
+            button = await card.query_selector('button[aria-expanded="false"]')
+            if not button:
+                print(f"⛔️ Kein Button in Card {i+1}")
                 continue
 
-            key = (title_text + (lines or "") + timestamp).encode("utf-8")
+            await button.scroll_into_view_if_needed()
+            await button.click(force=True)
+            await asyncio.sleep(0.5)
+
+            # Extrahiere Daten direkt aus dem Card-Element
+            title_el = await card.query_selector("h3")
+            title_text = await title_el.inner_text() if title_el else ""
+
+            line_els = await card.query_selector_all("a._BdsSignetLine_8xinl_2")
+            lines = ", ".join([await a.inner_text() for a in line_els]) if line_els else ""
+
+            time_el = await card.query_selector("time")
+            timestamp = await time_el.get_attribute("datetime") if time_el else ""
+
+            detail_els = await card.query_selector_all("div.NotificationItemVersionTwo_content__kw1Ui p")
+            raw_detail = " ".join([await p.inner_text() for p in detail_els]) if detail_els else title_text
+            detail_text = clean_detail(raw_detail)
+
+            key = (title_text + lines + timestamp).encode("utf-8")
             _id = "BVG-" + hashlib.sha1(key).hexdigest()
             content_hash = hashlib.sha1(title_text.encode("utf-8")).hexdigest()
 
@@ -118,20 +75,34 @@ def parse_items(html: str):
                 "detail": detail_text,
                 "timestamp": timestamp
             })
-        except Exception as e:
-            print(f"⚠️ Fehler beim Parsen eines Eintrags: {e}")
 
-    print(f"DEBUG BVG: Items extrahiert: {len(items)}")
+            print(f"✅ Card {i+1} extrahiert: {title_text}")
+        except Exception as e:
+            print(f"❌ Fehler bei Card {i+1}: {e}")
+
     return items
 
 # 🚀 Hauptfunktion
 async def fetch_all_items():
-    html_pages = await fetch_all_pages(LIST_URL)
-    time.sleep(1)
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page(viewport={"width": 1920, "height": 3000})
 
-    all_items = []
-    for html in html_pages:
-        items = parse_items(html)
-        all_items.extend(items)
+        all_items = []
 
-    return all_items
+        for page_num in range(1, 6):
+            url = f"{LIST_URL}?page={page_num}"
+            print(f"🔄 Lade Seite {page_num}: {url}")
+            await page.goto(url)
+            items = await extract_items_from_page(page)
+            all_items.extend(items)
+
+        await browser.close()
+        return all_items
+
+# 🧪 Testlauf
+if __name__ == "__main__":
+    items = asyncio.run(fetch_all_items())
+    print(f"\n📦 Insgesamt extrahiert: {len(items)} Einträge")
+    for item in items[:5]:  # Nur die ersten 5 anzeigen
+        print(f"\n📝 {item['detail']}\n📅 {item['timestamp']}\n🔗 Linien: {item['lines']}")

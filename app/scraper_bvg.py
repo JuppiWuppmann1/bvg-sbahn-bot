@@ -1,86 +1,105 @@
 import hashlib
-import asyncio
+import time
 from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
+from .settings import settings
 
 BASE_URL = "https://www.bvg.de"
-LIST_URL = f"{BASE_URL}/de/verbindungen/stoerungsmeldungen"
+LIST_URL = f"{BASE_URL}/de/verbindungen/stoerungsmeldungen?page="
 
-async def scroll_page_to_bottom(page, step=300, delay=0.1):
-    prev = await page.evaluate("() => document.body.scrollHeight")
-    while True:
-        await page.evaluate(f"window.scrollBy(0, {step})")
-        await asyncio.sleep(delay)
-        cur = await page.evaluate("() => document.body.scrollHeight")
-        if cur == prev:
-            break
-        prev = cur
 
-def clean_detail(text: str) -> str:
-    parts = [p.strip() for p in text.split() if p.strip()]
-    s = " ".join(parts)
-    return (s[:277] + "…") if len(s) > 280 else s
-
-async def extract_items_from_page(page):
-    await page.wait_for_selector("li.DisruptionsOverviewVersionTwo_item__GvWfq", timeout=10000)
-    await scroll_page_to_bottom(page)
-    await asyncio.sleep(0.5)
-
-    cards = await page.query_selector_all("li.DisruptionsOverviewVersionTwo_item__GvWfq")
-    print(f"🔍 BVG Cards: {len(cards)}")
-
-    items = []
-    for i, card in enumerate(cards):
-        try:
-            btn = await card.query_selector('button[aria-expanded="false"]')
-            if btn:
-                await btn.click(force=True)
-                await asyncio.sleep(0.2)
-
-            title_el = await card.query_selector("h3")
-            title = await title_el.inner_text() if title_el else ""
-
-            line_els = await card.query_selector_all("a._BdsSignetLine_8xinl_2")
-            lines = ", ".join([await a.inner_text() for a in line_els]) if line_els else ""
-
-            time_el = await card.query_selector("time")
-            timestamp = await time_el.get_attribute("datetime") if time_el else ""
-
-            # Detail: Absätze zusammenfassen
-            detail_els = await card.query_selector_all("div.NotificationItemVersionTwo_content__kw1Ui p")
-            raw_detail = " ".join([await p.inner_text() for p in detail_els]) if detail_els else title
-            detail = clean_detail(raw_detail)
-
-            key_id = (title + lines + (timestamp or "")).encode("utf-8")
-            _id = "BVG-" + hashlib.sha1(key_id).hexdigest()
-
-            key_hash = (title + detail + lines).encode("utf-8")
-            content_hash = hashlib.sha1(key_hash).hexdigest()
-
-            items.append({
-                "id": _id,
-                "source": "BVG",
-                "title": title.strip(),
-                "lines": lines.strip(),
-                "url": None,
-                "content_hash": content_hash,
-                "detail": detail,
-                "timestamp": timestamp
-            })
-        except Exception as e:
-            print(f"❌ BVG Card {i+1}: {e}")
-
-    return items
-
-async def fetch_all_items():
+async def fetch_rendered_html(url):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page(viewport={"width": 1440, "height": 2400})
-        all_items = []
-        for num in range(1, 4):
-            url = f"{LIST_URL}?page={num}"
-            print(f"🔄 BVG Seite {num}: {url}")
-            await page.goto(url)
-            all_items.extend(await extract_items_from_page(page))
+        page = await browser.new_page()
+        await page.goto(url)
+        await page.wait_for_selector("div.m-stoerungsmeldung", timeout=10000)
+        html = await page.content()
         await browser.close()
-        return all_items
+        return html
+
+
+def clean_detail(text: str) -> str:
+    sentences = list(dict.fromkeys(text.split(". ")))
+    cleaned = ". ".join(sentences)
+    return cleaned[:280]
+
+
+async def parse_incident(card, page):
+    # Titel
+    title_el = card.select_one("h3")
+    title = title_el.get_text(strip=True) if title_el else ""
+
+    # Linien
+    line_els = card.select("div.m-stoerungsmeldung__linien span")
+    lines = [el.get_text(strip=True) for el in line_els]
+
+    # Versuche Details direkt zu lesen (ohne Klick)
+    detail_paragraphs = card.select("div.m-stoerungsmeldung__beschreibung p")
+    detail = " ".join(p.get_text(" ", strip=True) for p in detail_paragraphs)
+
+    # Falls leer → Klick versuchen
+    if not detail:
+        try:
+            element_handle = await page.query_selector(f"#{card['id']}")
+            if element_handle:
+                await element_handle.scroll_into_view_if_needed()
+                await element_handle.click()
+                await page.wait_for_timeout(500)
+
+                html_after_click = await page.content()
+                soup_after_click = BeautifulSoup(html_after_click, "html.parser")
+                expanded = soup_after_click.select_one(f"#{card['id']}")
+                if expanded:
+                    detail_paragraphs = expanded.select("div.m-stoerungsmeldung__beschreibung p")
+                    detail = " ".join(p.get_text(" ", strip=True) for p in detail_paragraphs)
+        except Exception as e:
+            print(f"❌ Klick fehlgeschlagen bei Card {title}: {e}")
+
+    if not title or not detail or not lines:
+        return None
+
+    key = (title + "".join(lines)).encode("utf-8")
+    _id = "BVG-" + hashlib.sha1(key).hexdigest()
+    content_hash = hashlib.sha1((title + detail).encode("utf-8")).hexdigest()
+
+    return {
+        "id": _id,
+        "source": "BVG",
+        "title": title,
+        "lines": ", ".join(lines),
+        "url": BASE_URL,
+        "content_hash": content_hash,
+        "detail": clean_detail(detail),
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+
+async def fetch_all_items():
+    items = []
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
+
+        for page_num in range(1, 6):  # Seiten 1–5
+            url = LIST_URL + str(page_num)
+            print(f"🔄 Lade Seite {page_num}: {url}")
+            await page.goto(url)
+            await page.wait_for_selector("div.m-stoerungsmeldung", timeout=10000)
+
+            html = await page.content()
+            soup = BeautifulSoup(html, "html.parser")
+            cards = soup.select("div.m-stoerungsmeldung")
+            print("🔍 Gefundene Cards:", len(cards))
+
+            for idx, c in enumerate(cards, start=1):
+                try:
+                    incident = await parse_incident(c, page)
+                    if incident:
+                        items.append(incident)
+                except Exception as e:
+                    print(f"❌ Fehler bei Card {idx}: {e}")
+
+        await browser.close()
+    print("✅ Gesamt extrahierte Items:", len(items))
+    return items

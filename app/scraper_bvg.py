@@ -8,7 +8,18 @@ from .settings import settings
 BASE_URL = "https://www.bvg.de"
 LIST_URL = f"{BASE_URL}/de/verbindungen/stoerungsmeldungen"
 
-# 🛡️ Robuste Klick-Funktion mit Scroll & Sichtbarkeit
+# 🔄 Scrollt die Seite vollständig nach unten
+async def scroll_page_to_bottom(page, step=300, delay=0.1):
+    previous_height = await page.evaluate("() => document.body.scrollHeight")
+    while True:
+        await page.evaluate(f"window.scrollBy(0, {step})")
+        await asyncio.sleep(delay)
+        new_height = await page.evaluate("() => document.body.scrollHeight")
+        if new_height == previous_height:
+            break
+        previous_height = new_height
+
+# 🛡️ Klickt Buttons sicher mit Scroll & Fallback
 async def safe_click_visible_buttons(page, buttons, retries=3):
     for i, btn in enumerate(buttons):
         try:
@@ -29,11 +40,16 @@ async def safe_click_visible_buttons(page, buttons, retries=3):
                     print(f"⚠️ Versuch {attempt+1} für Button {i+1} fehlgeschlagen: {e}")
                     await asyncio.sleep(0.5 * (attempt + 1))
             else:
-                print(f"❌ Button {i+1} konnte nicht geklickt werden – wird übersprungen.")
+                # Fallback: Klick per JS
+                try:
+                    await page.evaluate("(el) => el.click()", btn)
+                    print(f"🧪 JS-Klick auf Button {i+1} erfolgreich.")
+                except Exception as e:
+                    print(f"❌ Button {i+1} konnte nicht geklickt werden – wird übersprungen. Fehler: {e}")
         except Exception as e:
             print(f"⚠️ Fehler bei Button {i+1}: {e}")
 
-# 🔄 Seitenabruf mit automatischem Scroll
+# 🔄 Holt HTML von allen Seiten
 async def fetch_all_pages(base_url):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -47,16 +63,8 @@ async def fetch_all_pages(base_url):
             await page.goto(url)
             await page.wait_for_selector("li.DisruptionsOverviewVersionTwo_item__GvWfq", timeout=10000)
 
-            # Automatisch scrollen, um alle Buttons sichtbar zu machen
-            await page.evaluate("""
-                let scrollInterval = setInterval(() => {
-                    window.scrollBy(0, 300);
-                    if (window.scrollY + window.innerHeight >= document.body.scrollHeight) {
-                        clearInterval(scrollInterval);
-                    }
-                }, 100);
-            """)
-            await asyncio.sleep(2)
+            await scroll_page_to_bottom(page)
+            await asyncio.sleep(1)
 
             buttons = await page.query_selector_all('button[aria-expanded="false"]')
             print(f"➡️ Gefundene Detail-Buttons: {len(buttons)}")
@@ -68,13 +76,13 @@ async def fetch_all_pages(base_url):
         await browser.close()
         return all_html
 
-# 🧼 Textbereinigung
+# 🧼 Bereinigt Text
 def clean_detail(text: str) -> str:
     sentences = list(dict.fromkeys(text.split(". ")))
     cleaned = ". ".join(sentences)
     return cleaned[:280]
 
-# 🧠 HTML-Parsing
+# 🧠 Extrahiert Störungsmeldungen
 def parse_items(html: str):
     soup = BeautifulSoup(html, "html.parser")
     cards = soup.select("li.DisruptionsOverviewVersionTwo_item__GvWfq")
@@ -116,7 +124,7 @@ def parse_items(html: str):
     print(f"DEBUG BVG: Items extrahiert: {len(items)}")
     return items
 
-# 🚀 Hauptfunktion zum Abrufen aller Items
+# 🚀 Hauptfunktion
 async def fetch_all_items():
     html_pages = await fetch_all_pages(LIST_URL)
     time.sleep(1)

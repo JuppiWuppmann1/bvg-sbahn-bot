@@ -13,6 +13,16 @@ async def fetch_rendered_html(url):
         page = await browser.new_page()
         await page.goto(url)
         await page.wait_for_selector("li.DisruptionsOverviewVersionTwo_item__GvWfq", timeout=10000)
+
+        # Alle Buttons mit aria-expanded="false" klicken
+        buttons = await page.query_selector_all('button[aria-expanded="false"]')
+        for btn in buttons:
+            try:
+                await btn.click()
+                await page.wait_for_timeout(300)  # Warte kurz auf DOM-Update
+            except Exception as e:
+                print(f"⚠️ Fehler beim Klick auf Button: {e}")
+
         html = await page.content()
         await browser.close()
         return html

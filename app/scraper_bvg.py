@@ -8,20 +8,27 @@ from .settings import settings
 BASE_URL = "https://www.bvg.de"
 LIST_URL = f"{BASE_URL}/de/verbindungen/stoerungsmeldungen"
 
-# 🛡️ Robuste Klick-Funktion mit Retry und Scroll
-async def safe_click(btn, retries=5):
-    for attempt in range(retries):
-        try:
-            await btn.scroll_into_view_if_needed()
-            await btn.click(force=True)
-            return True
-        except Exception as e:
-            print(f"⚠️ Versuch {attempt+1} fehlgeschlagen: {e}")
-            await asyncio.sleep(0.5 * (attempt + 1))
-    print("❌ Button konnte nicht geklickt werden – wird übersprungen.")
-    return False
+# 🛡️ Robuste Klick-Funktion mit Sichtbarkeitsprüfung und Retry
+async def safe_click_visible_buttons(buttons, retries=3):
+    for i, btn in enumerate(buttons):
+        box = await btn.bounding_box()
+        if not box:
+            print(f"⛔️ Button {i+1} hat keine sichtbare Bounding Box – wird übersprungen.")
+            continue
 
-# 🔄 Seitenabruf mit sicherem Button-Klick
+        for attempt in range(retries):
+            try:
+                await btn.click(force=True)
+                print(f"✅ Klick auf Button {i+1} erfolgreich.")
+                await asyncio.sleep(0.3)
+                break
+            except Exception as e:
+                print(f"⚠️ Versuch {attempt+1} für Button {i+1} fehlgeschlagen: {e}")
+                await asyncio.sleep(0.5 * (attempt + 1))
+        else:
+            print(f"❌ Button {i+1} konnte nicht geklickt werden – wird übersprungen.")
+
+# 🔄 Seitenabruf mit Detailbox-Handling
 async def fetch_all_pages(base_url):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -36,10 +43,8 @@ async def fetch_all_pages(base_url):
             await page.wait_for_selector("li.DisruptionsOverviewVersionTwo_item__GvWfq", timeout=10000)
 
             buttons = await page.query_selector_all('button[aria-expanded="false"]')
-            for i, btn in enumerate(buttons):
-                print(f"➡️ Versuche Klick auf Button {i+1}")
-                await safe_click(btn)
-                await page.wait_for_timeout(300)
+            print(f"➡️ Gefundene Detail-Buttons: {len(buttons)}")
+            await safe_click_visible_buttons(buttons)
 
             html = await page.content()
             all_html.append(html)
@@ -106,3 +111,4 @@ async def fetch_all_items():
         all_items.extend(items)
 
     return all_items
+

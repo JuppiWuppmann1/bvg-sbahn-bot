@@ -1,56 +1,59 @@
-from datetime import datetime
-from sqlalchemy import select
-from .storage import SessionLocal, Incident
+from typing import List, Dict, Tuple
+from .storage import get_all_entries, save_entry, mark_resolved
 
-def diff_and_apply(current_items):
-    new, changed, resolved = [], [], []
+class Entry:
+    def __init__(self, id: str, source: str, title: str, detail: str, content_hash: str):
+        self.id = id
+        self.source = source
+        self.title = title
+        self.detail = detail
+        self.content_hash = content_hash
 
-    # Duplikate entfernen
-    seen_ids = set()
-    deduped_items = []
-    for item in current_items:
-        if item["id"] not in seen_ids:
-            deduped_items.append(item)
-            seen_ids.add(item["id"])
+def diff_and_apply(scraped_items: List[Dict]) -> Tuple[List[Entry], List[Entry], List[Entry]]:
+    """
+    Vergleicht neue Scraping-Daten mit gespeicherten Einträgen.
+    Gibt zurück: (neu, geändert, gelöst).
+    """
+    stored_entries = {e["id"]: e for e in get_all_entries()}
+    scraped_ids = {item["id"] for item in scraped_items}
 
-    with SessionLocal() as db:
-        existing = {i.id: i for i in db.execute(select(Incident)).scalars()}
-        current_ids = set()
+    new_entries: List[Entry] = []
+    changed_entries: List[Entry] = []
+    resolved_entries: List[Entry] = []
 
-        for it in deduped_items:
-            current_ids.add(it["id"])
-            lines_str = ", ".join(it["lines"]) if isinstance(it["lines"], list) else (it["lines"] or "")
+    # Neue oder geänderte Einträge
+    for item in scraped_items:
+        entry = Entry(
+            id=item["id"],
+            source=item["source"],
+            title=item["title"],
+            detail=item.get("detail", ""),
+            content_hash=item["content_hash"],
+        )
 
-            if it["id"] not in existing:
-                i = Incident(
-                    id=it["id"],
-                    source=it["source"],
-                    title=it["title"],
-                    lines=lines_str,
-                    url=it["url"],
-                    content_hash=it["content_hash"],
-                    detail=it.get("detail", "")
+        if entry.id not in stored_entries:
+            # Neu
+            save_entry(entry)
+            new_entries.append(entry)
+        else:
+            stored = stored_entries[entry.id]
+            if stored["content_hash"] != entry.content_hash:
+                # Geändert
+                save_entry(entry)
+                changed_entries.append(entry)
+
+    # Aufgelöste Einträge
+    for stored_id, stored in stored_entries.items():
+        if stored_id not in scraped_ids:
+            mark_resolved(stored_id)
+            resolved_entries.append(
+                Entry(
+                    id=stored["id"],
+                    source=stored["source"],
+                    title=stored["title"],
+                    detail=stored.get("detail", ""),
+                    content_hash=stored["content_hash"],
                 )
-                db.merge(i)
-                new.append(i)
-            else:
-                i = existing[it["id"]]
-                if i.content_hash != it["content_hash"]:
-                    i.title = it["title"]
-                    i.lines = lines_str
-                    i.url = it["url"]
-                    i.content_hash = it["content_hash"]
-                    i.detail = it.get("detail", i.detail)
-                    changed.append(i)
-                i.status = "active"
-                i.last_seen = datetime.utcnow()
+            )
 
-        for _id, i in existing.items():
-            if _id not in current_ids and i.status != "resolved":
-                i.status = "resolved"
-                i.last_seen = datetime.utcnow()
-                resolved.append(i)
-
-        db.commit()
-
-    return new, changed, resolved
+    return new_entries, changed_entries, resolved_entries

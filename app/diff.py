@@ -1,58 +1,31 @@
-from typing import List, Dict, Tuple
-from .storage import get_all_entries, save_entry, mark_resolved
+from .storage import save_entry, get_active_incidents, mark_resolved
 
-class Entry:
-    def __init__(self, id: str, source: str, title: str, detail: str, content_hash: str):
-        self.id = id
-        self.source = source
-        self.title = title
-        self.detail = detail
-        self.content_hash = content_hash
+def diff_and_apply(scraped_items):
+    """Vergleicht Scraper-Ergebnisse mit der DB und liefert neue / geänderte / gelöste Incidents zurück."""
+    new_entries = []
+    changed_entries = []
+    resolved_entries = []
 
-def diff_and_apply(scraped_items: List[Dict]) -> Tuple[List[Entry], List[Entry], List[Entry]]:
-    """
-    Vergleicht neue Scraping-Daten mit gespeicherten Einträgen.
-    Gibt zurück: (neu, geändert, gelöst).
-    """
-    stored_entries = {e["id"]: e for e in get_all_entries()}
-    scraped_ids = set()
-    
-    new_entries: List[Entry] = []
-    changed_entries: List[Entry] = []
-    resolved_entries: List[Entry] = []
+    # DB: alle aktiven holen
+    active = {inc.id: inc for inc in get_active_incidents()}
 
+    # Neue & geänderte Incidents
     for item in scraped_items:
-        entry = Entry(
-            id=item["id"],
-            source=item["source"],
-            title=item["title"],
-            detail=item.get("detail", ""),
-            content_hash=item["content_hash"],
-        )
-        scraped_ids.add(entry.id)
+        db_item = active.pop(item.id, None)
 
-        stored = stored_entries.get(entry.id)
-        if not stored:
-            # Neuer Eintrag
-            save_entry(entry)
-            new_entries.append(entry)
-        elif stored["content_hash"] != entry.content_hash:
-            # Geänderter Eintrag
-            save_entry(entry)
-            changed_entries.append(entry)
+        if not db_item:
+            new_entries.append(item)
+            save_entry(item)
+        elif db_item.content_hash != item.content_hash:
+            changed_entries.append(item)
+            save_entry(item)
+        else:
+            # Falls gleich → trotzdem updaten, um last_seen aktuell zu halten
+            save_entry(item)
 
-    # Aufgelöste Einträge (nicht mehr im aktuellen Lauf vorhanden)
-    for stored_id, stored in stored_entries.items():
-        if stored_id not in scraped_ids:
-            mark_resolved(stored_id)
-            resolved_entries.append(
-                Entry(
-                    id=stored["id"],
-                    source=stored["source"],
-                    title=stored["title"],
-                    detail=stored.get("detail", ""),
-                    content_hash=stored["content_hash"],
-                )
-            )
+    # Alles, was übrig ist, wurde nicht mehr gemeldet → resolved
+    for inc in active.values():
+        resolved_entries.append(inc)
+        mark_resolved(inc.id)
 
     return new_entries, changed_entries, resolved_entries

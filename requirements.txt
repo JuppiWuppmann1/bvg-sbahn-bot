@@ -1,10 +1,2 @@
-fastapi
-uvicorn[standard]
-sqlalchemy
-pydantic
-pydantic-settings
-requests
-beautifulsoup4
-twikit
-cloudscraper
 playwright
+python-dotenv

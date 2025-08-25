@@ -1,3 +1,5 @@
+import re
+
 def enrich_message(text: str) -> str:
     """Ergänzt Meldungen mit passenden Emojis & Hashtags"""
     mapping = {
@@ -30,25 +32,33 @@ def enrich_message(text: str) -> str:
 
 
 def generate_tweets(meldungen):
+    """Erzeugt formatierte Tweets aus vollständigen Meldungen"""
     tweets = []
 
     for m in meldungen:
-        prefix = "🚧 BVG:" if "art" in m else "⚠️ S-Bahn:"
+        # Nur vollständige Meldungen verarbeiten
+        beschreibung = m.get("beschreibung", "").strip()
+        zeitraum = m.get("zeitraum") or f"{m.get('von')} → {m.get('bis')}"
+        titel = m.get("titel") or m.get("art") or "Störung"
+
+        if not beschreibung or not zeitraum:
+            continue  # Unvollständig, überspringen
+
+        # Linien
         linien = ", ".join(m.get("linien", []))
         linien_str = f" ({linien})" if linien else ""
 
-        zeitraum = m.get("zeitraum") or f"{m.get('von')} → {m.get('bis')}"
-        zeitraum_str = f"🕒 {zeitraum}"
-
-        titel = m.get("titel") or m.get("art") or "Störung"
-        beschreibung = m.get("beschreibung", "").strip()
+        # Beschreibung kürzen
         beschreibung = re.sub(r"\s+", " ", beschreibung)
         beschreibung = beschreibung[:180] + "..." if len(beschreibung) > 200 else beschreibung
 
         # Emojis & Hashtags ergänzen
         extras = enrich_message(f"{titel} {beschreibung}")
 
-        tweet = f"{prefix} {titel}{linien_str}\n{zeitraum_str}\n📝 {beschreibung}\n{extras}"
+        # Tweet zusammenbauen
+        prefix = "🚧 BVG:" if "art" in m else "⚠️ S-Bahn:"
+        tweet = f"{prefix} {titel}{linien_str}\n🕒 {zeitraum}\n📝 {beschreibung}\n{extras}"
         tweets.append(tweet[:280])  # Sicherheitshalber kürzen
 
     return tweets
+

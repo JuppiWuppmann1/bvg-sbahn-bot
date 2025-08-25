@@ -2,6 +2,7 @@ import asyncio
 from scraper import scrape_bvg, scrape_sbahn
 from db import init_db, is_new_message, save_message
 from nebenbot import twitter_login_and_tweet
+from utils import enrich_message   # <--- hinzugefügt
 
 async def main():
     print("🚀 Starte Verarbeitung...")
@@ -20,7 +21,8 @@ async def main():
     for meldung in alle_meldungen:
         if is_new_message(meldung):
             save_message(meldung)
-            await twitter_login_and_tweet(f"🚧 Neue Meldung:\n{meldung}")
+            tweet = enrich_message(meldung)  # <--- Emojis & Hashtags ergänzen
+            await twitter_login_and_tweet(tweet)
 
 if __name__ == "__main__":
     asyncio.run(main())

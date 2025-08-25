@@ -1,43 +1,41 @@
-import asyncio
+import hashlib
+from datetime import datetime
 from playwright.async_api import async_playwright
+from .storage import Incident
 
-EXCLUDE_KEYWORDS = [
-    "aufzug", "fahrtreppe", "bauinfos", "wieso wird gebaut", "fahrplanänderung"
-]
+URL = "https://www.bvg.de/de/verbindungen/stoerungsmeldungen"
 
 async def fetch_all_items():
-    url = "https://www.bvg.de/de/verbindungen/stoerungsmeldungen?page=1"
     items = []
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=True)
+        page = await browser.new_page()
+        await page.goto(URL, timeout=30000)
 
-    try:
-        async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=True)
-            page = await browser.new_page()
-            await page.goto(url, timeout=20000)
+        await page.wait_for_selector("div.m-stoerungsmeldung", timeout=15000)
+        cards = await page.query_selector_all("div.m-stoerungsmeldung")
 
-            try:
-                await page.wait_for_selector("div.m-stoerungsmeldung", timeout=15000)
-            except Exception:
-                print("❌ BVG: Keine Störungsmeldungen-Elemente gefunden (Timeout).")
-                await browser.close()
-                return []
+        for card in cards:
+            title = (await card.query_selector("h3")).inner_text() if await card.query_selector("h3") else ""
+            detail = (await card.query_selector("p")).inner_text() if await card.query_selector("p") else ""
+            lines = (await card.query_selector(".m-stoerungsmeldung__linien")).inner_text() if await card.query_selector(".m-stoerungsmeldung__linien") else ""
+            url = await card.get_attribute("data-href") or URL
 
-            cards = await page.query_selector_all("div.m-stoerungsmeldung")
-            for card in cards:
-                title = (await card.inner_text()).strip()
-                if any(word in title.lower() for word in EXCLUDE_KEYWORDS):
-                    continue
-                items.append({
-                    "id": hash(title),
-                    "source": "BVG",
-                    "title": title,
-                    "detail": title,
-                    "content_hash": str(hash(title))
-                })
+            raw = f"{title}|{detail}|{lines}"
+            content_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
-            await browser.close()
+            incident = Incident(
+                id=f"BVG-{content_hash[:12]}",
+                source="BVG",
+                title=title.strip(),
+                detail=detail.strip(),
+                lines=lines.strip(),
+                url=url,
+                content_hash=content_hash,
+                first_seen=datetime.utcnow(),
+                last_seen=datetime.utcnow(),
+            )
+            items.append(incident)
 
-    except Exception as e:
-        print("❌ Fehler beim BVG-Scraping:", e)
-
+        await browser.close()
     return items

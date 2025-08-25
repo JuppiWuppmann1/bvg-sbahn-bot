@@ -1,12 +1,20 @@
 import asyncio
 import threading
 import time
+import subprocess
+import os
 from fastapi import FastAPI
 
 from scraper import scrape_bvg, scrape_sbahn
 from db import init_db, is_new_message, save_message
 from nebenbot import twitter_login_and_tweet
 from utils import enrich_message
+
+# ✅ Stelle sicher, dass Playwright-Browser installiert ist
+try:
+    subprocess.run(["playwright", "install", "chromium"], check=True)
+except Exception as e:
+    print(f"❌ Fehler bei der Playwright-Installation: {e}")
 
 # FastAPI-App für Render Webservice
 app = FastAPI()
@@ -44,7 +52,7 @@ def start_loop():
                 await run_bot()
             except Exception as e:
                 print(f"❌ Fehler beim Botlauf: {e}")
-            time.sleep(900)  # alle 15 Minuten
+            await asyncio.sleep(900)  # alle 15 Minuten
 
     asyncio.run(loop())
 

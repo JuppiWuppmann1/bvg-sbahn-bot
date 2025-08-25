@@ -18,6 +18,12 @@ async def scrape_bvg():
 
             for item in items:
                 try:
+                    await item.click()
+                    await page.wait_for_timeout(500)  # kleine Pause für Accordion-Animation
+
+                    detail_el = await item.query_selector('div[class*="NotificationItemVersionTwo_content__"]')
+                    detail = await detail_el.inner_text() if detail_el else "Keine Details"
+
                     text = await item.inner_text()
                     von = re.search(r"Von\s+(\d{2}\.\d{2}\.\d{4})", text)
                     bis = re.search(r"Bis\s+(\d{2}\.\d{2}\.\d{4}|Bis auf weiteres)", text)
@@ -27,9 +33,6 @@ async def scrape_bvg():
                     bis_str = bis.group(1) if bis else None
                     art_str = art.group(1) if art else "Unbekannt"
 
-                    detail_el = await item.query_selector('div[class*="NotificationItemVersionTwo_content__"]')
-                    detail = await detail_el.inner_text() if detail_el else "Keine Details"
-
                     if von_str and bis_str and detail:
                         results.append({
                             "von": von_str,
@@ -38,6 +41,10 @@ async def scrape_bvg():
                             "beschreibung": detail.strip()
                         })
                         print(f"✅ BVG: {art_str} | {von_str} → {bis_str}\n📝 {detail.strip()[:100]}...\n")
+
+    except Exception as e:
+        print(f"⚠️ Fehler beim Detailabruf: {e}")
+
 
                 except Exception as e:
                     print(f"⚠️ Fehler beim BVG-Eintrag: {e}")

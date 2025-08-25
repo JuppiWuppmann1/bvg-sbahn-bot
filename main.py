@@ -1,6 +1,5 @@
 import asyncio
 import threading
-import time
 import subprocess
 import os
 from fastapi import FastAPI
@@ -10,9 +9,13 @@ from db import init_db, is_new_message, save_message
 from nebenbot import twitter_login_and_tweet
 from utils import enrich_message
 
+# ✅ Setze beschreibbaren Pfad für Playwright-Browser
+os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "/tmp/playwright"
+
 # ✅ Stelle sicher, dass Playwright-Browser installiert ist
 try:
     subprocess.run(["playwright", "install", "chromium"], check=True)
+    print("✅ Chromium erfolgreich installiert.")
 except Exception as e:
     print(f"❌ Fehler bei der Playwright-Installation: {e}")
 

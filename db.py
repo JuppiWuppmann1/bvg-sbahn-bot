@@ -1,4 +1,5 @@
 import sqlite3
+import datetime
 
 DB_FILE = "meldungen.db"
 
@@ -23,3 +24,12 @@ def save_message(text: str):
     c.execute("INSERT OR IGNORE INTO meldungen (text) VALUES (?)", (text,))
     conn.commit()
     conn.close()
+
+def reset_db_if_monday():
+    if datetime.datetime.today().weekday() == 0:  # Montag = 0
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute("DELETE FROM meldungen")
+        conn.commit()
+        conn.close()
+        print("🧹 Datenbank wurde zurückgesetzt (Wochenstart)")

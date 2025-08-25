@@ -1,46 +1,49 @@
-import asyncio
+import hashlib
+from datetime import datetime
 from playwright.async_api import async_playwright
+from .storage import Incident
 
-EXCLUDE_KEYWORDS = [
-    "aufzug", "fahrtreppe", "bauinfos", "wieso wird gebaut", "fahrplanänderung"
-]
+URL = "https://sbahn.berlin/fahren/bauen-stoerung/"
 
 async def fetch_all_items():
-    url = "https://sbahn.berlin/fahren/bauen-stoerung/"  # ggf. richtige URL anpassen
     items = []
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=True)
+        page = await browser.new_page()
+        await page.goto(URL, timeout=30000)
 
-    try:
-        async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=True)
-            page = await browser.new_page()
-            await page.goto(url, timeout=20000)
+        # Warten bis Karten vorhanden sind
+        await page.wait_for_selector("div.c-construction-announcement--disorder", timeout=15000)
 
-            try:
-                await page.wait_for_selector("div.stoerungsmeldung, article, li", timeout=15000)
-            except Exception:
-                print("❌ S-Bahn: Keine Störungsmeldungen-Elemente gefunden (Timeout).")
-                await browser.close()
-                return []
+        cards = await page.query_selector_all("div.c-construction-announcement--disorder")
+        for card in cards:
+            title = (await card.query_selector("h3.o-construction-announcement-title__heading"))
+            title_text = await title.inner_text() if title else "(ohne Titel)"
 
-            cards = await page.query_selector_all("div.stoerungsmeldung, article, li")
-            for card in cards:
-                title = (await card.inner_text()).strip()
-                if any(word in title.lower() for word in EXCLUDE_KEYWORDS):
-                    continue
-                items.append({
-                    "id": hash(title),
-                    "source": "SBAHN",
-                    "title": title,
-                    "detail": title,
-                    "content_hash": str(hash(title))
-                })
+            detail = (
+                await card.query_selector("div.c-construction-announcement-body")
+             )
+            detail_text = await detail.inner_text() if detail else ""
 
-            await browser.close()
+            # Linien extrahieren
+            line_els = await card.query_selector_all("a.o-icon-css-line")
+            lines = ", ".join([await el.inner_text() for el in line_els])
 
-    except Exception as e:
-        print("❌ Fehler beim S-Bahn-Scraping:", e)
+            raw = f"{title_text}|{detail_text}|{lines}"
+            content_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
-    return items
+            incident = Incident(
+                id=f"SBAHN-{content_hash[:12]}",
+                source="SBAHN",
+                title=title_text.strip(),
+                detail=detail_text.strip(),
+                lines=lines,
+                url=URL,
+                content_hash=content_hash,
+                first_seen=datetime.utcnow(),
+                last_seen=datetime.utcnow(),
+            )
+            items.append(incident)
 
-    print("✅ Gesamt extrahierte SBAHN-Items:", len(items))
+        await browser.close()
     return items

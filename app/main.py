@@ -17,7 +17,7 @@ from .storage import init_db
 from .scraper_bvg import fetch_all_items as fetch_bvg_items
 from .scraper_sbahn import fetch_all_items as fetch_sbahn_items
 from .diff import diff_and_apply
-from .poster import post_to_x  # post_to_x muss async sein!
+from .poster import post_to_x
 
 app = FastAPI(title="BVG & S-Bahn Bot", version="1.0.0")
 
@@ -44,6 +44,7 @@ async def root(_: Request):
         status_code=200,
     )
 
+# Kategorien
 KEYWORDS = {
     "störung": ["störung", "unterbrechung", "ausfall", "defekt", "problem"],
     "baustelle": ["baustelle", "bauarbeiten", "bau", "arbeiten"],
@@ -59,22 +60,14 @@ def detect_category(title: str) -> tuple[str, str, str]:
     title_lower = title.lower()
     for category, synonyms in KEYWORDS.items():
         if any(word in title_lower for word in synonyms):
-            if category == "störung":
-                return "🚨", "Störung", "#Störung"
-            elif category == "baustelle":
-                return "🛠️", "Baustelle", "#Baustelle"
-            elif category == "verspätung":
-                return "⏱️", "Verspätung", "#Verspätung"
-            elif category == "ersatzverkehr":
-                return "🚌", "Ersatzverkehr", "#Ersatzverkehr"
-            elif category == "signal":
-                return "🚦", "Signalstörung", "#Signal"
-            elif category == "wetter":
-                return "🌧️", "Wetterbedingung", "#Wetter"
-            elif category == "streik":
-                return "✊", "Streik", "#Streik"
-            elif category == "polizei":
-                return "🚓", "Polizeieinsatz", "#Polizei"
+            if category == "störung": return "🚨", "Störung", "#Störung"
+            if category == "baustelle": return "🛠️", "Baustelle", "#Baustelle"
+            if category == "verspätung": return "⏱️", "Verspätung", "#Verspätung"
+            if category == "ersatzverkehr": return "🚌", "Ersatzverkehr", "#Ersatzverkehr"
+            if category == "signal": return "🚦", "Signalstörung", "#Signal"
+            if category == "wetter": return "🌧️", "Wetterbedingung", "#Wetter"
+            if category == "streik": return "✊", "Streik", "#Streik"
+            if category == "polizei": return "🚓", "Polizeieinsatz", "#Polizei"
     return "ℹ️", "Info", "#Info"
 
 def format_message(name: str, title: str, status: str, timestamp: datetime | None = None, detail: str | None = None) -> str:
@@ -119,11 +112,7 @@ async def process_run(token: str | None):
             print("📤 Sende Tweet:", msg)
             await post_to_x(msg)
 
-        results[name] = {
-            "new": len(new),
-            "changed": len(changed),
-            "resolved": len(resolved),
-        }
+        results[name] = {"new": len(new), "changed": len(changed), "resolved": len(resolved)}
 
     print("🏁 Verarbeitung abgeschlossen:", results)
     return results
@@ -148,4 +137,3 @@ async def run_post(request: Request):
 async def run_get(request: Request):
     token = request.query_params.get("token")
     return await process_run(token)
-

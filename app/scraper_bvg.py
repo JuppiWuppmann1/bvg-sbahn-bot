@@ -1,41 +1,44 @@
-import hashlib
-from datetime import datetime
+import asyncio
 from playwright.async_api import async_playwright
-from .storage import Incident
 
 URL = "https://www.bvg.de/de/verbindungen/stoerungsmeldungen"
 
 async def fetch_all_items():
-    items = []
-    async with async_playwright() as pw:
-        browser = await pw.chromium.launch(headless=True)
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = await browser.new_page()
-        await page.goto(URL, timeout=30000)
 
-        await page.wait_for_selector("div.m-stoerungsmeldung", timeout=15000)
-        cards = await page.query_selector_all("div.m-stoerungsmeldung")
+        print(f"🔄 Lade Seite: {URL}")
+        await page.goto(URL, timeout=60000)  # 60s Ladezeit, falls Render langsam ist
 
-        for card in cards:
-            title = (await card.query_selector("h3")).inner_text() if await card.query_selector("h3") else ""
-            detail = (await card.query_selector("p")).inner_text() if await card.query_selector("p") else ""
-            lines = (await card.query_selector(".m-stoerungsmeldung__linien")).inner_text() if await card.query_selector(".m-stoerungsmeldung__linien") else ""
-            url = await card.get_attribute("data-href") or URL
+        try:
+            # Warte auf BVG-Meldungen
+            await page.wait_for_selector("div.m-stoerungsmeldung", timeout=30000)
+        except Exception as e:
+            print("⚠️ BVG-Seite geladen, aber Selektor nicht gefunden.")
+            html = await page.content()
+            print("📄 HTML-Dump (erste 2000 Zeichen):\n")
+            print(html[:2000])  # nur ein Ausschnitt für Logs
+            await browser.close()
+            raise e
 
-            raw = f"{title}|{detail}|{lines}"
-            content_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+        # Alle Meldungen sammeln
+        elements = await page.query_selector_all("div.m-stoerungsmeldung")
+        print(f"✅ Gefundene Meldungen: {len(elements)}")
 
-            incident = Incident(
-                id=f"BVG-{content_hash[:12]}",
-                source="BVG",
-                title=title.strip(),
-                detail=detail.strip(),
-                lines=lines.strip(),
-                url=url,
-                content_hash=content_hash,
-                first_seen=datetime.utcnow(),
-                last_seen=datetime.utcnow(),
-            )
-            items.append(incident)
+        items = []
+        for el in elements:
+            title = (await el.inner_text())[:280].strip()
+            items.append({
+                "title": title,
+                "source": "BVG",
+                "detail": title,
+            })
 
         await browser.close()
-    return items
+        return items
+
+# Debug-Run
+if __name__ == "__main__":
+    asyncio.run(fetch_all_items())
+

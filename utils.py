@@ -62,7 +62,7 @@ async def post_threads(threads):
         return
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        browser = await p.chromium.launch(headless=False)  # headless=False für Debug
         context = await browser.new_context()
         page = await context.new_page()
 
@@ -71,9 +71,14 @@ async def post_threads(threads):
             await page.goto("https://x.com/i/flow/login", timeout=60000)
 
             # Eingabe Benutzername
-            await page.wait_for_selector('input[placeholder="Telefonnummer, E-Mail-Adresse oder Nutzername"]', timeout=15000)
-            await page.fill('input[placeholder="Telefonnummer, E-Mail-Adresse oder Nutzername"]', user)
-            await page.keyboard.press("Enter")
+            await page.wait_for_selector('input', timeout=15000)
+            inputs = await page.query_selector_all('input')
+            for inp in inputs:
+                placeholder = await inp.get_attribute("placeholder")
+                if placeholder and "Telefonnummer" in placeholder:
+                    await inp.fill(user)
+                    await inp.press("Enter")
+                    break
             await page.wait_for_timeout(3000)
 
             # Eingabe Passwort
@@ -88,6 +93,7 @@ async def post_threads(threads):
                 return
 
             # Warte auf Tweet-Feld
+            await page.goto("https://x.com/compose/tweet", timeout=30000)
             await page.wait_for_selector('div[aria-label="Tweet text"]', timeout=20000)
 
             for thread in threads:
@@ -95,14 +101,20 @@ async def post_threads(threads):
                 for tweet in thread:
                     tweet_box = page.locator('div[aria-label="Tweet text"]')
                     await tweet_box.click()
-                    await tweet_box.type(tweet)
+                    await tweet_box.fill(tweet)
                     await page.wait_for_timeout(1000)
+
                     if first:
                         await page.click('div[data-testid="tweetButtonInline"]')
                         first = False
+                        await page.wait_for_timeout(3000)
+                        await page.goto("https://x.com/compose/tweet", timeout=30000)
+                        await page.wait_for_selector('div[aria-label="Tweet text"]', timeout=20000)
                     else:
-                        await page.click('div[data-testid="tweetButton"]')
-                    await page.wait_for_timeout(2000)
+                        await page.click('div[data-testid="tweetButtonInline"]')
+                        await page.wait_for_timeout(3000)
+                        await page.goto("https://x.com/compose/tweet", timeout=30000)
+                        await page.wait_for_selector('div[aria-label="Tweet text"]', timeout=20000)
 
             logging.info("✅ Alle Tweets gesendet!")
         except Exception as e:

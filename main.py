@@ -1,36 +1,43 @@
+import asyncio
 import logging
-from scraper_bvg import scrape_bvg
-from scraper_sbahn import scrape_sbahn
-from utils import generate_tweets
-from twitter_bot import post_thread
+from fastapi import FastAPI
+from scraper_bvg import fetch_bvg
+from scraper_sbahn import fetch_sbahn
+from utils import generate_tweets, post_threads
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+app = FastAPI()
 
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "🚇 BVG / 🚆 S-Bahn Bot aktiv"}
 
-def main():
-    logger.info("📡 Sammle BVG- und S-Bahn-Meldungen...")
+@app.get("/run")
+async def run_scraper():
+    logging.info("🚀 Starte Verarbeitung...")
 
     meldungen = []
-    meldungen.extend(scrape_bvg(max_pages=3))
-    meldungen.extend(scrape_sbahn())
 
-    if not meldungen:
-        logger.info("ℹ️ Keine neuen Meldungen gefunden.")
-        return
+    # BVG
+    try:
+        bvg = await fetch_bvg()
+        logging.info(f"✅ {len(bvg)} Meldungen von BVG")
+        meldungen.extend(bvg)
+    except Exception as e:
+        logging.error(f"❌ Fehler bei BVG: {e}")
 
-    logger.info(f"✅ {len(meldungen)} Meldungen gesammelt")
+    # S-Bahn
+    try:
+        sbahn = await fetch_sbahn()
+        logging.info(f"✅ {len(sbahn)} Meldungen von S-Bahn")
+        meldungen.extend(sbahn)
+    except Exception as e:
+        logging.error(f"❌ Fehler bei S-Bahn: {e}")
 
+    # Tweets generieren
     threads = generate_tweets(meldungen)
 
-    for idx, parts in enumerate(threads, start=1):
-        logger.info(f"📢 Sende Thread {idx} mit {len(parts)} Tweets...")
-        try:
-            post_thread(parts)
-            logger.info("✅ Thread erfolgreich gepostet")
-        except Exception as e:
-            logger.error(f"❌ Fehler beim Tweeten: {e}")
+    # Tweets posten
+    await post_threads(threads)
 
-
-if __name__ == "__main__":
-    main()
+    return {"status": "done", "meldungen": len(meldungen), "threads": len(threads)}

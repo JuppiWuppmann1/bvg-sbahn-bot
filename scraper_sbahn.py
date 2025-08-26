@@ -1,4 +1,5 @@
 import logging
+import re
 from playwright.async_api import async_playwright
 
 async def fetch_sbahn():
@@ -15,16 +16,23 @@ async def fetch_sbahn():
 
             for item in items:
                 titel_el = await item.query_selector("h3")
-                titel = await titel_el.inner_text() if titel_el else "Unbekannt"
-
+                titel = await titel_el.inner_text() if titel_el else None
                 beschreibung = await item.inner_text() or ""
+
+                linie = re.search(r"S\d+", beschreibung)
+                grund = re.search(r"(Bauarbeiten|Störung|Verspätung|Ausfall)", beschreibung)
+                zeitraum = re.findall(r"\d{2}\.\d{2}\.\d{4}", beschreibung)
 
                 meldung = {
                     "quelle": "S-Bahn",
-                    "titel": titel.strip(),
+                    "titel": titel.strip() if titel else "Unbekannt",
                     "beschreibung": beschreibung.strip(),
+                    "linie": linie.group(0) if linie else None,
+                    "grund": grund.group(1) if grund else None,
+                    "zeitraum": zeitraum
                 }
-                logging.info(f"📍 S-Bahn-Meldung gefunden: {meldung['titel']}")
+
+                logging.info(f"📍 S-Bahn-Meldung: {meldung}")
                 meldungen.append(meldung)
 
             logging.info(f"📥 {len(meldungen)} Meldungen von S-Bahn geladen.")
@@ -34,4 +42,3 @@ async def fetch_sbahn():
             await browser.close()
 
     return meldungen
-

@@ -1,6 +1,6 @@
 import os
 import asyncio
-from playwright.async_api import async_playwright, PlaywrightTimeoutError
+from playwright.async_api import async_playwright
 
 USERNAME = os.getenv("TWITTER_USERNAME")
 PASSWORD = os.getenv("TWITTER_PASSWORD")

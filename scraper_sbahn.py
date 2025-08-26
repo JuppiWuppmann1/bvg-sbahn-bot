@@ -2,6 +2,14 @@ import logging
 import re
 from playwright.async_api import async_playwright
 
+def is_relevant_sbahn_meldung(beschreibung):
+    beschreibung = beschreibung.lower()
+    if "wieso wird gebaut" in beschreibung or "gründe für störungen" in beschreibung:
+        return False
+    if not any(keyword in beschreibung for keyword in ["störung", "ausfall", "unterbrechung", "verspätung"]):
+        return False
+    return True
+
 async def fetch_sbahn():
     url = "https://sbahn.berlin/fahren/bauen-stoerung/"
     meldungen = []
@@ -19,6 +27,10 @@ async def fetch_sbahn():
                 titel = await titel_el.inner_text() if titel_el else None
                 beschreibung = await item.inner_text() or ""
 
+                if not is_relevant_sbahn_meldung(beschreibung):
+                    logging.info("⏭️ Allgemeine Info übersprungen.")
+                    continue
+
                 linie = re.search(r"S\d+", beschreibung)
                 grund = re.search(r"(Bauarbeiten|Störung|Verspätung|Ausfall)", beschreibung)
                 zeitraum = re.findall(r"\d{2}\.\d{2}\.\d{4}", beschreibung)
@@ -35,7 +47,7 @@ async def fetch_sbahn():
                 logging.info(f"📍 S-Bahn-Meldung: {meldung}")
                 meldungen.append(meldung)
 
-            logging.info(f"📥 {len(meldungen)} Meldungen von S-Bahn geladen.")
+            logging.info(f"✅ {len(meldungen)} relevante Meldungen von S-Bahn")
         except Exception as e:
             logging.error(f"❌ Fehler beim S-Bahn-Scraping: {e}")
         finally:

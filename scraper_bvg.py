@@ -1,5 +1,21 @@
 import logging
+import re
 from playwright.async_api import async_playwright
+
+def parse_bvg_details(text):
+    von = re.search(r"Von\s+(\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2})", text)
+    bis = re.search(r"Bis\s+(?:auf weiteres|(\d{2}\.\d{2}\.\d{4}))", text)
+    linien = re.findall(r"\b(?:Bus\s)?[MX]?\d{1,3}\b", text)
+    maßnahme = re.search(r"(Haltestelle verlegt|Ersatzverkehr|Pendelverkehr)", text)
+    ort = re.search(r"Haltestelle\s+verlegt.*?([A-Za-zäöüÄÖÜß\s\/\-]+)", text)
+
+    return {
+        "von": von.group(1) if von else None,
+        "bis": bis.group(1) if bis and bis.group(1) else "Bis auf weiteres",
+        "linien": ", ".join(linien),
+        "maßnahme": maßnahme.group(1) if maßnahme else None,
+        "ort": ort.group(1).strip() if ort else None
+    }
 
 async def fetch_bvg():
     url = "https://www.bvg.de/de/verbindungen/stoerungsmeldungen"
@@ -23,12 +39,16 @@ async def fetch_bvg():
                     beschreibung_el = await item.query_selector("div.NotificationItemVersionTwo_content__kw1Ui")
                     beschreibung = await beschreibung_el.inner_text() if beschreibung_el else ""
 
+                    details = parse_bvg_details(beschreibung)
+
                     meldung = {
                         "quelle": "BVG",
                         "titel": titel.strip(),
                         "beschreibung": beschreibung.strip(),
+                        "details": details
                     }
-                    logging.info(f"📍 BVG-Meldung gefunden: {meldung['titel']}")
+
+                    logging.info(f"📍 BVG-Meldung: {meldung['titel']} | Details: {details}")
                     meldungen.append(meldung)
 
                 next_button = await page.query_selector("a[aria-label='Nächste Seite']")
@@ -44,4 +64,3 @@ async def fetch_bvg():
             await browser.close()
 
     return meldungen
-

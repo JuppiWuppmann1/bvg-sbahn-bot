@@ -33,22 +33,23 @@ def home():
 
 @app.get("/update")
 async def update():
-    logger.info("Update gestartet")
+    logger.info("🔄 Update gestartet")
 
     # Asynchrone Scraper ausführen
     bvg_msgs = await scrape_bvg()
     sbahn_msgs = await scrape_sbahn()
 
     all_msgs = bvg_msgs + sbahn_msgs
-    tweets = generate_tweets(all_msgs)
+    threads = generate_tweets(all_msgs)
 
     posted = 0
-    for tweet in tweets:
-        if is_new_message(tweet):
-            save_message(tweet)
-            await twitter_login_and_tweet(tweet)
+    for thread in threads:
+        # Prüfe nur den ersten Tweet auf Duplikat
+        if is_new_message(thread[0]):
+            save_message(thread[0])
+            await twitter_login_and_tweet(thread)
             posted += 1
         else:
-            logger.info("⏭️ Tweet bereits bekannt, wird übersprungen.")
+            logger.info("⏭️ Thread bereits bekannt, wird übersprungen.")
 
     return {"posted": posted, "total_scraped": len(all_msgs)}

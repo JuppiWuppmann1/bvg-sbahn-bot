@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from scraper import scrape_bvg, scrape_sbahn
-from poster import post_message
+from nebenbot import twitter_login_and_tweet as post_message
 from logger import logger
 
 app = FastAPI(title="BVG & S-Bahn Bot")

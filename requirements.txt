@@ -1,7 +1,5 @@
 fastapi
-uvicorn[standard]
-playwright
-beautifulsoup4
+uvicorn
 requests
-python-dotenv
-tweepy
+beautifulsoup4
+playwright

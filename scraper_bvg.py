@@ -1,20 +1,31 @@
 import logging
 import re
+from collections import OrderedDict
 from playwright.async_api import async_playwright
 
 def parse_bvg_details(text):
-    von = re.search(r"Von\s+(\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2})", text)
-    bis = re.search(r"Bis\s+(?:auf weiteres|(\d{2}\.\d{2}\.\d{4}))", text)
-    linien = re.findall(r"\b(?:Bus\s)?[MX]?\d{1,3}\b", text)
-    maßnahme = re.search(r"(Haltestelle verlegt|Ersatzverkehr|Pendelverkehr)", text)
-    ort = re.search(r"Haltestelle\s+verlegt.*?([A-Za-zäöüÄÖÜß\s\/\-]+)", text)
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    von, bis, linien, ort, maßnahme = None, "Bis auf weiteres", [], None, None
+
+    for i, line in enumerate(lines):
+        if re.match(r"\d{2}\.\d{2}\.\d{4}", line):
+            if i > 0 and lines[i - 1].lower().startswith("von"):
+                von = f"{line} {lines[i + 1]}" if i + 1 < len(lines) and re.match(r"\d{2}:\d{2}", lines[i + 1]) else line
+        elif "bis auf weiteres" in line.lower():
+            bis = "Bis auf weiteres"
+        elif "haltestelle verlegt" in line.lower():
+            maßnahme = "Haltestelle verlegt"
+        elif re.match(r"(Bus|M|X)\d+", line):
+            linien.append(line)
+        elif "straße" in line.lower() or "platz" in line.lower():
+            ort = line
 
     return {
-        "von": von.group(1) if von else None,
-        "bis": bis.group(1) if bis and bis.group(1) else "Bis auf weiteres",
-        "linien": ", ".join(linien),
-        "maßnahme": maßnahme.group(1) if maßnahme else None,
-        "ort": ort.group(1).strip() if ort else None
+        "von": von,
+        "bis": bis,
+        "linien": ", ".join(OrderedDict.fromkeys(linien)),
+        "maßnahme": maßnahme,
+        "ort": ort
     }
 
 async def fetch_bvg():
@@ -63,4 +74,5 @@ async def fetch_bvg():
         finally:
             await browser.close()
 
+    logging.info(f"✅ {len(meldungen)} Meldungen von BVG")
     return meldungen

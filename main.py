@@ -1,44 +1,36 @@
 import logging
-from fastapi import FastAPI
 from scraper_bvg import scrape_bvg
 from scraper_sbahn import scrape_sbahn
-from twitter_bot import post_update
+from utils import generate_tweets
+from twitter_bot import post_thread
 
-# Logging Setup
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[logging.StreamHandler()]
-)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
 
-@app.get("/")
-def home():
-    return {"status": "ok", "message": "BVG & S-Bahn Bot läuft 🚇"}
+def main():
+    logger.info("📡 Sammle BVG- und S-Bahn-Meldungen...")
 
-@app.get("/update")
-def update():
-    try:
-        messages = []
+    meldungen = []
+    meldungen.extend(scrape_bvg(max_pages=3))
+    meldungen.extend(scrape_sbahn())
 
-        # BVG Scraping
-        bvg_msgs = scrape_bvg()
-        logger.info(f"🔍 {len(bvg_msgs)} BVG-Meldungen gefunden")
-        messages.extend(bvg_msgs)
+    if not meldungen:
+        logger.info("ℹ️ Keine neuen Meldungen gefunden.")
+        return
 
-        # S-Bahn Scraping
-        sbahn_msgs = scrape_sbahn()
-        logger.info(f"🔍 {len(sbahn_msgs)} S-Bahn-Meldungen gefunden")
-        messages.extend(sbahn_msgs)
+    logger.info(f"✅ {len(meldungen)} Meldungen gesammelt")
 
-        # Posten
-        for msg in messages:
-            post_update(msg)
+    threads = generate_tweets(meldungen)
 
-        return {"status": "ok", "count": len(messages)}
+    for idx, parts in enumerate(threads, start=1):
+        logger.info(f"📢 Sende Thread {idx} mit {len(parts)} Tweets...")
+        try:
+            post_thread(parts)
+            logger.info("✅ Thread erfolgreich gepostet")
+        except Exception as e:
+            logger.error(f"❌ Fehler beim Tweeten: {e}")
 
-    except Exception as e:
-        logger.error(f"❌ Fehler beim Update: {e}")
-        return {"status": "error", "error": str(e)}
+
+if __name__ == "__main__":
+    main()

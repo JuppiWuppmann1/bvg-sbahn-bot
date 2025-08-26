@@ -5,11 +5,9 @@ services:
     plan: free
     buildCommand: |
       pip install -r requirements.txt
-      playwright install --with-deps firefox
+      playwright install chromium
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.6
       - key: TWITTER_USER
         sync: false
       - key: TWITTER_PASS

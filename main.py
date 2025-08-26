@@ -1,16 +1,17 @@
-import asyncio
 import logging
 from fastapi import FastAPI
-from startup import install_playwright
-
-asyncio.run(install_playwright())
-
+from startup import install_playwright  # <== NEU
 from scraper_bvg import fetch_bvg
 from scraper_sbahn import fetch_sbahn
 from utils import generate_tweets, post_threads
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 app = FastAPI()
+
+@app.on_event("startup")
+def startup_event():
+    logging.info("🔧 Installiere Playwright-Browser...")
+    install_playwright()
 
 @app.get("/")
 def root():

@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://www.bvg.de/de/verbindungen/verkehrsmeldungen?page="
+BASE_URL = "https://www.bvg.de/de/verbindungen/stoerungsmeldungen"
 
 def scrape_bvg(max_pages=3):
     """Scrapt BVG-Meldungen über mehrere Seiten"""

@@ -14,13 +14,18 @@ async def fetch_sbahn():
             items = await page.query_selector_all("div.c-teaser")
 
             for item in items:
-                titel = (await item.query_selector("h3")).inner_text() if await item.query_selector("h3") else "Unbekannt"
-                beschreibung = (await item.inner_text()) or ""
-                meldungen.append({
+                titel_el = await item.query_selector("h3")
+                titel = await titel_el.inner_text() if titel_el else "Unbekannt"
+
+                beschreibung = await item.inner_text() or ""
+
+                meldung = {
                     "quelle": "S-Bahn",
                     "titel": titel.strip(),
                     "beschreibung": beschreibung.strip(),
-                })
+                }
+                logging.info(f"📍 S-Bahn-Meldung gefunden: {meldung['titel']}")
+                meldungen.append(meldung)
 
             logging.info(f"📥 {len(meldungen)} Meldungen von S-Bahn geladen.")
         except Exception as e:
@@ -29,3 +34,4 @@ async def fetch_sbahn():
             await browser.close()
 
     return meldungen
+

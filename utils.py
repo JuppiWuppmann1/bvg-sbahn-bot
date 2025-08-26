@@ -71,8 +71,8 @@ async def post_threads(threads):
             await page.goto("https://x.com/i/flow/login", timeout=60000)
 
             # Eingabe Benutzername
-            await page.wait_for_selector('input[name="text"]', timeout=15000)
-            await page.fill('input[name="text"]', user)
+            await page.wait_for_selector('input[placeholder="Telefonnummer, E-Mail-Adresse oder Nutzername"]', timeout=15000)
+            await page.fill('input[placeholder="Telefonnummer, E-Mail-Adresse oder Nutzername"]', user)
             await page.keyboard.press("Enter")
             await page.wait_for_timeout(3000)
 

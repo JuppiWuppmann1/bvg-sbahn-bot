@@ -12,13 +12,20 @@ app = FastAPI()
 def root():
     return {"status": "ok", "message": "🚇 BVG / 🚆 S-Bahn Bot aktiv"}
 
+@app.get("/health")
+def health():
+    return {"status": "healthy"}
+
+@app.get("/update")
+def update():
+    return {"status": "no update", "message": "Kein automatischer Update-Endpunkt definiert."}
+
 @app.get("/run")
 async def run_scraper():
     logging.info("🚀 Starte Verarbeitung...")
 
     meldungen = []
 
-    # BVG
     try:
         bvg = await fetch_bvg()
         logging.info(f"✅ {len(bvg)} Meldungen von BVG")
@@ -26,7 +33,6 @@ async def run_scraper():
     except Exception as e:
         logging.error(f"❌ Fehler bei BVG: {e}")
 
-    # S-Bahn
     try:
         sbahn = await fetch_sbahn()
         logging.info(f"✅ {len(sbahn)} Meldungen von S-Bahn")
@@ -34,10 +40,11 @@ async def run_scraper():
     except Exception as e:
         logging.error(f"❌ Fehler bei S-Bahn: {e}")
 
-    # Tweets generieren
-    threads = generate_tweets(meldungen)
+    if not meldungen:
+        logging.warning("⚠️ Keine Meldungen gefunden.")
+        return {"status": "done", "meldungen": 0, "threads": 0}
 
-    # Tweets posten
+    threads = generate_tweets(meldungen)
     await post_threads(threads)
 
     return {"status": "done", "meldungen": len(meldungen), "threads": len(threads)}

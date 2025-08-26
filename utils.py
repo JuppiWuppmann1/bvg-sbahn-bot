@@ -54,7 +54,6 @@ def generate_tweets(meldungen):
     return threads
 
 async def post_threads(threads):
-    """Loggt sich bei Twitter ein und postet die Meldungen"""
     user = os.getenv("TWITTER_USER")
     pw = os.getenv("TWITTER_PASS")
 
@@ -70,7 +69,7 @@ async def post_threads(threads):
             await page.goto("https://x.com/i/flow/login", timeout=60000)
             await page.fill('input[name="text"]', user)
             await page.keyboard.press("Enter")
-            await page.wait_for_timeout(2000)
+            await page.wait_for_timeout(3000)
             await page.fill('input[name="password"]', pw)
             await page.keyboard.press("Enter")
             await page.wait_for_timeout(5000)
@@ -80,17 +79,16 @@ async def post_threads(threads):
                 for tweet in thread:
                     await page.click('div[aria-label="Tweet text"]')
                     await page.keyboard.type(tweet)
+                    await page.wait_for_timeout(1000)
                     if first:
                         await page.click('div[data-testid="tweetButtonInline"]')
                         first = False
-                        await page.wait_for_timeout(2000)
                     else:
                         await page.click('div[data-testid="tweetButton"]')
-                        await page.wait_for_timeout(2000)
+                    await page.wait_for_timeout(2000)
 
             logging.info("✅ Alle Tweets gesendet!")
         except Exception as e:
             logging.error(f"❌ Fehler beim Tweeten: {e}")
         finally:
             await browser.close()
-

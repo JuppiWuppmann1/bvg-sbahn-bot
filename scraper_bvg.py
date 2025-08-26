@@ -1,39 +1,79 @@
-import logging
 import requests
 from bs4 import BeautifulSoup
+import logging
 
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://www.bvg.de/de/verbindungen/stoerungsmeldungen"
 
-def scrape_bvg(max_pages=3):
-    """Scrapt BVG-Meldungen über mehrere Seiten"""
-    results = []
 
-    for page in range(1, max_pages+1):
-        url = f"{BASE_URL}{page}"
-        logger.info(f"🌐 Scraping {url}")
-        r = requests.get(url, timeout=10)
-        soup = BeautifulSoup(r.text, "html.parser")
+def scrape_bvg(max_pages: int = 5):
+    """
+    Holt BVG-Störungen inkl. aller Seiten (Pagination).
+    Gibt eine Liste von Dicts zurück:
+    {
+        "quelle": "BVG",
+        "titel": "...",
+        "beschreibung": "...",
+        "von": "...",
+        "bis": "...",
+        "zeitraum": "...",
+        "linien": ["M5", "U2"],
+        "art": "Aufzugsstörung"
+    }
+    """
+    meldungen = []
 
-        cards = soup.select(".m-teaser__inner")
-        for card in cards:
+    for page in range(1, max_pages + 1):
+        url = f"{BASE_URL}?p={page}"
+        logger.info(f"🔎 Lade BVG-Seite {page}: {url}")
+        resp = requests.get(url, timeout=20)
+
+        if resp.status_code != 200:
+            logger.warning(f"⚠️ Konnte BVG-Seite {page} nicht laden (HTTP {resp.status_code})")
+            continue
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        items = soup.select("li.traffic-item")
+
+        if not items:
+            logger.info(f"ℹ️ Keine weiteren BVG-Meldungen auf Seite {page}")
+            break
+
+        for item in items:
             try:
-                line = card.select_one(".m-teaser__eyebrow").get_text(strip=True)
-                title = card.select_one(".m-teaser__headline").get_text(strip=True)
-                body = card.select_one(".m-teaser__content").get_text(" ", strip=True)
+                titel = item.select_one(".traffic-item-title")
+                titel = titel.get_text(strip=True) if titel else "BVG-Meldung"
 
-                msg = format_bvg_message(line, title, body)
-                results.append(msg)
+                beschreibung = item.select_one(".traffic-item-description")
+                beschreibung = beschreibung.get_text(" ", strip=True) if beschreibung else ""
+
+                zeitraum = item.select_one(".traffic-item-date")
+                zeitraum = zeitraum.get_text(" ", strip=True) if zeitraum else None
+
+                von, bis = None, None
+                if zeitraum and "bis" in zeitraum:
+                    parts = zeitraum.split("bis")
+                    von = parts[0].strip()
+                    bis = parts[1].strip()
+
+                linien = [l.get_text(strip=True) for l in item.select(".traffic-item-lines span")] or []
+
+                art = "Aufzugsstörung" if "Aufzug" in titel else "Störung"
+
+                meldungen.append({
+                    "quelle": "BVG",
+                    "titel": titel,
+                    "beschreibung": beschreibung,
+                    "zeitraum": zeitraum,
+                    "von": von,
+                    "bis": bis,
+                    "linien": linien,
+                    "art": art,
+                })
             except Exception as e:
-                logger.warning(f"⚠️ Fehler beim Parsen: {e}")
+                logger.error(f"❌ Fehler beim Parsen einer BVG-Meldung: {e}")
 
-    return results
+    logger.info(f"✅ {len(meldungen)} BVG-Meldungen gesammelt")
+    return meldungen
 
-def format_bvg_message(line, title, body):
-    """Formatiert eine BVG-Meldung kompakt"""
-    msg = f"🚌 BVG-Meldung: {title}\n"
-    if line:
-        msg += f"🔹 Linie: {line}\n"
-    msg += f"📍 {body[:200]}..." if len(body) > 200 else f"📍 {body}"
-    return msg

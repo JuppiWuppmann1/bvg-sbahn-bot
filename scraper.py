@@ -22,7 +22,8 @@ async def scrape_bvg():
                     await page.wait_for_timeout(500)
 
                     detail_el = await item.query_selector('div[class*="NotificationItemVersionTwo_content__"]')
-                    detail = await detail_el.inner_text() if detail_el else "Keine Details"
+                    detail = await detail_el.inner_text() if detail_el else await item.inner_text()
+
 
                     text = await item.inner_text()
                     von = re.search(r"Von\s+(\d{2}\.\d{2}\.\d{4})", text)

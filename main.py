@@ -1,3 +1,5 @@
+import subprocess
+import os
 from fastapi import FastAPI
 from scraper import scrape_bvg, scrape_sbahn
 from nebenbot import twitter_login_and_tweet
@@ -5,6 +7,16 @@ from utils import generate_tweets
 from db import is_new_message, save_message, init_db, reset_db_if_monday
 import logging
 import asyncio
+
+# 🔧 Playwright-Browser installieren, falls sie fehlen
+playwright_path = "/tmp/playwright"
+if not os.path.exists(playwright_path):
+    try:
+        print("🔄 Playwright-Browser werden installiert...")
+        subprocess.run(["playwright", "install"], check=True)
+        print("✅ Installation erfolgreich.")
+    except Exception as e:
+        print(f"❌ Fehler bei playwright install: {e}")
 
 # Logger Setup
 logger = logging.getLogger("bvg-sbahn-bot")
@@ -41,3 +53,4 @@ async def update():
             logger.info("⏭️ Tweet bereits bekannt, wird übersprungen.")
 
     return {"posted": posted, "total_scraped": len(all_msgs)}
+

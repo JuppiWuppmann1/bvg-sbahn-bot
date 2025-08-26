@@ -8,21 +8,20 @@ def parse_bvg_details(text):
     von, bis, linien, ort, maßnahme = None, "Bis auf weiteres", [], None, None
 
     for i, line in enumerate(lines):
-        if re.match(r"^(U-Bahn|Bus)?\s?[MXU]?\d{1,3}$", line):
+        if re.match(r"(Bus|U-Bahn)?\s?[MXU]?\d{1,3}", line):
             linien.append(line)
-
-        if "Störung" in line or "Unterbrechung" in line:
-            maßnahme = "Störung/Unterbrechung"
-        elif "Ersatzverkehr" in line:
-            maßnahme = "Ersatzverkehr"
-        elif "Pendelverkehr" in line:
-            maßnahme = "Pendelverkehr"
-        elif "Aufzugsstörung" in line:
-            maßnahme = "Aufzugsstörung"
-        elif "Haltestelle verlegt" in line:
+        if "haltestelle verlegt" in line.lower():
             maßnahme = "Haltestelle verlegt"
+        elif "störung" in line.lower():
+            maßnahme = "Störung"
+        elif "ersatzverkehr" in line.lower():
+            maßnahme = "Ersatzverkehr"
+        elif "pendelverkehr" in line.lower():
+            maßnahme = "Pendelverkehr"
+        elif "aufzugsstörung" in line.lower():
+            maßnahme = "Aufzugsstörung"
 
-        if "platz" in line.lower() or "straße" in line.lower() or "str." in line.lower() or "bahnhof" in line.lower():
+        if any(k in line.lower() for k in ["straße", "platz", "bahnhof", "str."]):
             ort = line
 
         if i > 0 and lines[i - 1].lower().startswith("von"):
@@ -31,12 +30,12 @@ def parse_bvg_details(text):
                 if i + 1 < len(lines) and re.match(r"\d{2}:\d{2}", lines[i + 1]):
                     von += f" {lines[i + 1]}"
         if i > 0 and lines[i - 1].lower().startswith("bis"):
-            if re.match(r"\d{2}\.\d{2}\.\d{4}", line):
+            if "auf weiteres" in line.lower():
+                bis = "Bis auf weiteres"
+            elif re.match(r"\d{2}\.\d{2}\.\d{4}", line):
                 bis = line
                 if i + 1 < len(lines) and re.match(r"\d{2}:\d{2}", lines[i + 1]):
                     bis += f" {lines[i + 1]}"
-            elif "bis auf weiteres" in line.lower():
-                bis = "Bis auf weiteres"
 
     return {
         "von": von,
@@ -66,7 +65,7 @@ async def fetch_bvg():
                     titel = await titel_el.inner_text() if titel_el else "Unbekannt"
 
                     beschreibung_parts = await item.query_selector_all("div.NotificationItemVersionTwo_content__kw1Ui p")
-                    beschreibung = " ".join([await part.inner_text() for part in beschreibung_parts]) if beschreibung_parts else ""
+                    beschreibung = "\n".join([await part.inner_text() for part in beschreibung_parts]) if beschreibung_parts else ""
 
                     datum_el = await item.query_selector("time")
                     aktualisiert_am = await datum_el.get_attribute("datetime") if datum_el else None
@@ -77,7 +76,11 @@ async def fetch_bvg():
                         "quelle": "BVG",
                         "titel": titel.strip(),
                         "beschreibung": beschreibung.strip(),
-                        "details": details,
+                        "linien": details["linien"],
+                        "maßnahme": details["maßnahme"],
+                        "von": details["von"],
+                        "bis": details["bis"],
+                        "ort": details["ort"],
                         "aktualisiert_am": aktualisiert_am
                     }
 

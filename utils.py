@@ -1,4 +1,5 @@
 import re
+from collections import OrderedDict
 
 def enrich_message(text: str) -> str:
     """Ergänzt Meldungen mit passenden Emojis & Hashtags"""
@@ -21,44 +22,50 @@ def enrich_message(text: str) -> str:
     hashtags = []
 
     for key, (emoji, hashtag) in mapping.items():
-        if key.lower() in text.lower():
+        if re.search(rf"\b{re.escape(key)}\b", text, re.IGNORECASE):
             emojis.append(emoji)
-            hashtags.append(hashtag)
+            hashtags.extend(hashtag.split())
 
-    emojis = " ".join(set(emojis))
-    hashtags = " ".join(set(hashtags))
+    emojis = " ".join(OrderedDict.fromkeys(emojis))
+    hashtags = " ".join(OrderedDict.fromkeys(hashtags + ["#Berlin"]))
 
     return f"{emojis} {hashtags}".strip()
 
 
 def generate_tweets(meldungen):
-    """Erzeugt formatierte Tweets aus vollständigen Meldungen"""
-    tweets = []
+    """Erzeugt formatierte Tweets oder Threads aus vollständigen Meldungen"""
+    threads = []
 
     for m in meldungen:
-        # Nur vollständige Meldungen verarbeiten
         beschreibung = m.get("beschreibung", "").strip()
-        zeitraum = m.get("zeitraum") or f"{m.get('von')} → {m.get('bis')}"
+        von = m.get("von")
+        bis = m.get("bis")
+        zeitraum = m.get("zeitraum") or (f"{von} → {bis}" if von and bis else None)
         titel = m.get("titel") or m.get("art") or "Störung"
 
         if not beschreibung or not zeitraum:
-            continue  # Unvollständig, überspringen
+            continue
 
-        # Linien
         linien = ", ".join(m.get("linien", []))
         linien_str = f" ({linien})" if linien else ""
 
-        # Beschreibung kürzen
         beschreibung = re.sub(r"\s+", " ", beschreibung)
-        beschreibung = beschreibung[:180] + "..." if len(beschreibung) > 200 else beschreibung
-
-        # Emojis & Hashtags ergänzen
         extras = enrich_message(f"{titel} {beschreibung}")
-
-        # Tweet zusammenbauen
         prefix = "🚧 BVG:" if "art" in m else "⚠️ S-Bahn:"
-        tweet = f"{prefix} {titel}{linien_str}\n🕒 {zeitraum}\n📝 {beschreibung}\n{extras}"
-        tweets.append(tweet[:280])  # Sicherheitshalber kürzen
+        header = f"{prefix} {titel}{linien_str}\n🕒 {zeitraum}"
 
-    return tweets
+        full_text = f"{header}\n📝 {beschreibung}\n{extras}"
 
+        if len(full_text) <= 280:
+            threads.append([full_text])
+        else:
+            # Thread aufteilen
+            parts = [header]
+            beschreibung_chunks = [beschreibung[i:i+240] for i in range(0, len(beschreibung), 240)]
+            for chunk in beschreibung_chunks:
+                parts.append(f"📝 {chunk.strip()}")
+            if extras:
+                parts.append(extras)
+            threads.append(parts)
+
+    return threads

@@ -1,6 +1,10 @@
 import asyncio
 import logging
 from fastapi import FastAPI
+from startup import install_playwright
+
+asyncio.run(install_playwright())
+
 from scraper_bvg import fetch_bvg
 from scraper_sbahn import fetch_sbahn
 from utils import generate_tweets, post_threads

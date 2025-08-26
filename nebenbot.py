@@ -35,7 +35,7 @@ async def twitter_login_and_tweet(thread: list[str]):
                 await page.click('div[data-testid="tweetButtonInline"]')
                 print(f"🔁 Antwort gesendet: {reply[:50]}...")
 
-        except PlaywrightTimeoutError:
+        except TimeoutError:
             print("❌ Timeout beim Tweet-Versand.")
             await page.screenshot(path="tweet_error.png")
         except Exception as e:

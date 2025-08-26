@@ -8,7 +8,7 @@ services:
       playwright install chromium
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: TWITTER_USER
+      - key: TWITTER_USERNAME
         sync: false
-      - key: TWITTER_PASS
+      - key: TWITTER_PASSWORD
         sync: false

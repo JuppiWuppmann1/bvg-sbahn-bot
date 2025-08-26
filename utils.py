@@ -1,5 +1,6 @@
 import re
 from collections import OrderedDict
+import textwrap
 
 def enrich_message(text: str) -> str:
     """Ergänzt Meldungen mit passenden Emojis & Hashtags"""
@@ -7,6 +8,7 @@ def enrich_message(text: str) -> str:
         "U-Bahn": ("🚇", "#BVG #UBahn"),
         "S-Bahn": ("🚆", "#SBahnBerlin"),
         "Straßenbahn": ("🚋", "#TramBerlin"),
+        "Tram": ("🚋", "#TramBerlin"),
         "Bus": ("🚌", "#BVG #Bus"),
         "Aufzug": ("🛗", "#Barrierefreiheit"),
         "Fahrstuhl": ("🛗", "#Barrierefreiheit"),
@@ -16,6 +18,7 @@ def enrich_message(text: str) -> str:
         "Ausfall": ("❌", "#Ausfall"),
         "geschlossen": ("🔒", "#Info"),
         "Schienenersatzverkehr": ("🚍", "#SEV"),
+        "Ersatzverkehr": ("🚍", "#SEV"),
     }
 
     emojis = []
@@ -54,18 +57,24 @@ def generate_tweets(meldungen):
         prefix = "🚧 BVG:" if "art" in m else "⚠️ S-Bahn:"
         header = f"{prefix} {titel}{linien_str}\n🕒 {zeitraum}"
 
-        full_text = f"{header}\n📝 {beschreibung}\n{extras}"
+        # Kompletttext
+        full_text = f"{header}\n📝 {beschreibung}\n{extras}".strip()
 
         if len(full_text) <= 280:
             threads.append([full_text])
         else:
             # Thread aufteilen
             parts = [header]
-            beschreibung_chunks = [beschreibung[i:i+240] for i in range(0, len(beschreibung), 240)]
+
+            # beschreibung in max. 240 Zeichen Blöcke, aber nach Wortgrenzen
+            beschreibung_chunks = textwrap.wrap(beschreibung, width=240, break_long_words=False)
+
             for chunk in beschreibung_chunks:
                 parts.append(f"📝 {chunk.strip()}")
+
             if extras:
                 parts.append(extras)
+
             threads.append(parts)
 
     return threads

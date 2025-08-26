@@ -1,67 +1,28 @@
-import requests
-from bs4 import BeautifulSoup
+import asyncio
 import logging
+from playwright.async_api import async_playwright
 
-logger = logging.getLogger(__name__)
-
-URL = "https://sbahn.berlin/fahren/bauen-stoerung/"
-
-
-def scrape_sbahn():
-    """
-    Holt S-Bahn-Störungen.
-    Gibt eine Liste von Dicts zurück:
-    {
-        "quelle": "S-Bahn",
-        "titel": "...",
-        "beschreibung": "...",
-        "von": "...",
-        "bis": "...",
-        "zeitraum": "...",
-        "linien": ["S1", "S25"],
-    }
-    """
+async def fetch_sbahn():
+    url = "https://sbahn.berlin/fahren/bauen-stoerung/"
     meldungen = []
 
-    resp = requests.get(URL, timeout=20)
-    if resp.status_code != 200:
-        logger.error(f"⚠️ Konnte S-Bahn-Seite nicht laden (HTTP {resp.status_code})")
-        return []
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
+        await page.goto(url, timeout=60000)
 
-    soup = BeautifulSoup(resp.text, "html.parser")
-    items = soup.select("div.module-teaser--disruption")
+        await page.wait_for_selector("div.c-teaser", timeout=20000)
+        items = await page.query_selector_all("div.c-teaser")
 
-    for item in items:
-        try:
-            titel = item.select_one(".module-teaser__title")
-            titel = titel.get_text(strip=True) if titel else "S-Bahn-Meldung"
-
-            beschreibung = item.select_one(".module-teaser__text")
-            beschreibung = beschreibung.get_text(" ", strip=True) if beschreibung else ""
-
-            zeitraum = item.select_one(".module-teaser__date")
-            zeitraum = zeitraum.get_text(" ", strip=True) if zeitraum else None
-
-            von, bis = None, None
-            if zeitraum and "bis" in zeitraum:
-                parts = zeitraum.split("bis")
-                von = parts[0].strip()
-                bis = parts[1].strip()
-
-            linien = [l.get_text(strip=True) for l in item.select(".module-teaser__lines span")] or []
-
+        for item in items:
+            titel = (await item.query_selector("h3")).inner_text() if await item.query_selector("h3") else "Unbekannt"
+            beschreibung = (await item.inner_text()) or ""
             meldungen.append({
                 "quelle": "S-Bahn",
-                "titel": titel,
-                "beschreibung": beschreibung,
-                "zeitraum": zeitraum,
-                "von": von,
-                "bis": bis,
-                "linien": linien,
+                "titel": titel.strip(),
+                "beschreibung": beschreibung.strip(),
             })
-        except Exception as e:
-            logger.error(f"❌ Fehler beim Parsen einer S-Bahn-Meldung: {e}")
 
-    logger.info(f"✅ {len(meldungen)} S-Bahn-Meldungen gesammelt")
+        await browser.close()
+
     return meldungen
-

@@ -2,35 +2,46 @@ import logging
 import re
 from playwright.async_api import async_playwright
 
+def parse_sbahn_details_from_text(text):
+    linie = re.search(r"S\d+", text)
+    zeitraum = re.findall(r"\d{2}\.\d{2}\.", text)
+    maßnahme = "Ersatzverkehr" if "Ersatzverkehr" in text else None
+
+    return {
+        "linie": linie.group(0) if linie else None,
+        "maßnahme": maßnahme,
+        "zeitraum": zeitraum
+    }
+
 async def parse_sbahn_details(item):
-    # Linien aus data-lines
     data_lines = await item.get_attribute("data-lines")
     linien = data_lines.upper().split(",") if data_lines else []
 
-    # Titel (Streckenabschnitt)
     titel_el = await item.query_selector("h3.o-construction-announcement-title__heading")
     titel = await titel_el.inner_text() if titel_el else "Unbekannt"
 
-    # Zeitraum
     zeitraum_el = await item.query_selector("div.o-timespan__center.o-timespan__cp")
     zeitraum_text = await zeitraum_el.inner_text() if zeitraum_el else ""
     zeitraum = re.findall(r"\d{2}\.\d{2}\.", zeitraum_text)
 
-    # Maßnahme
     labels = await item.query_selector_all("div.c-construction-announcement-foot__labels span")
     maßnahmen = [await label.inner_text() for label in labels]
     maßnahme = ", ".join(maßnahmen) if maßnahmen else None
 
-    # Beschreibung
     beschreibung_el = await item.query_selector("div.c-construction-announcement-details ul")
     beschreibung = await beschreibung_el.inner_text() if beschreibung_el else ""
 
+    # Fallback Parsing aus Beschreibung
+    fallback = parse_sbahn_details_from_text(beschreibung)
+
     return {
-        "linien": ", ".join(linien),
+        "linien": ", ".join(linien) if linien else fallback["linie"],
         "titel": titel.strip(),
-        "zeitraum": zeitraum,
-        "maßnahme": maßnahme,
-        "beschreibung": beschreibung.strip()
+        "beschreibung": beschreibung.strip(),
+        "maßnahme": maßnahme or fallback["maßnahme"],
+        "zeitraum": zeitraum or fallback["zeitraum"],
+        "von": fallback["zeitraum"][0] if fallback["zeitraum"] else None,
+        "bis": fallback["zeitraum"][1] if len(fallback["zeitraum"]) > 1 else None
     }
 
 async def fetch_sbahn():
@@ -54,6 +65,8 @@ async def fetch_sbahn():
                     "beschreibung": details["beschreibung"],
                     "linie": details["linien"],
                     "maßnahme": details["maßnahme"],
+                    "von": details["von"],
+                    "bis": details["bis"],
                     "zeitraum": details["zeitraum"]
                 }
 
@@ -67,3 +80,4 @@ async def fetch_sbahn():
             await browser.close()
 
     return meldungen
+

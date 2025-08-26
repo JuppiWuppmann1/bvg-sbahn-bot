@@ -12,44 +12,42 @@ async def scrape_bvg():
         page = await browser.new_page()
 
         try:
-            await page.goto(BVG_URL, timeout=20000)
-            await page.wait_for_selector('li[class^="DisruptionsOverviewVersionTwo_item__"]', timeout=10000)
-            items = await page.query_selector_all('li[class^="DisruptionsOverviewVersionTwo_item__"]')
+    await page.goto(BVG_URL, timeout=20000)
+    await page.wait_for_selector('li[class^="DisruptionsOverviewVersionTwo_item__"]', timeout=10000)
+    items = await page.query_selector_all('li[class^="DisruptionsOverviewVersionTwo_item__"]')
 
-            for item in items:
-                try:
-                    await item.click()
-                    await page.wait_for_timeout(500)  # kleine Pause für Accordion-Animation
+    for item in items:
+        try:
+            await item.click()
+            await page.wait_for_timeout(500)
 
-                    detail_el = await item.query_selector('div[class*="NotificationItemVersionTwo_content__"]')
-                    detail = await detail_el.inner_text() if detail_el else "Keine Details"
+            detail_el = await item.query_selector('div[class*="NotificationItemVersionTwo_content__"]')
+            detail = await detail_el.inner_text() if detail_el else "Keine Details"
 
-                    text = await item.inner_text()
-                    von = re.search(r"Von\s+(\d{2}\.\d{2}\.\d{4})", text)
-                    bis = re.search(r"Bis\s+(\d{2}\.\d{2}\.\d{4}|Bis auf weiteres)", text)
-                    art = re.search(r"(Ersatzverkehr|Aufzugsstörung|Umleitung|Kein Halt|Unterbrechung|Haltestelle verlegt)", text)
+            text = await item.inner_text()
+            von = re.search(r"Von\s+(\d{2}\.\d{2}\.\d{4})", text)
+            bis = re.search(r"Bis\s+(\d{2}\.\d{2}\.\d{4}|Bis auf weiteres)", text)
+            art = re.search(r"(Ersatzverkehr|Aufzugsstörung|Umleitung|Kein Halt|Unterbrechung|Haltestelle verlegt)", text)
 
-                    von_str = von.group(1) if von else None
-                    bis_str = bis.group(1) if bis else None
-                    art_str = art.group(1) if art else "Unbekannt"
+            von_str = von.group(1) if von else None
+            bis_str = bis.group(1) if bis else None
+            art_str = art.group(1) if art else "Unbekannt"
 
-                    if von_str and bis_str and detail:
-                        results.append({
-                            "von": von_str,
-                            "bis": bis_str,
-                            "art": art_str,
-                            "beschreibung": detail.strip()
-                        })
-                        print(f"✅ BVG: {art_str} | {von_str} → {bis_str}\n📝 {detail.strip()[:100]}...\n")
+            if von_str and bis_str and detail:
+                results.append({
+                    "von": von_str,
+                    "bis": bis_str,
+                    "art": art_str,
+                    "beschreibung": detail.strip()
+                })
+                print(f"✅ BVG: {art_str} | {von_str} → {bis_str}\n📝 {detail.strip()[:100]}...\n")
 
-    except Exception as e:
-        print(f"⚠️ Fehler beim Detailabruf: {e}")
-
-
-                except Exception as e:
-                    print(f"⚠️ Fehler beim BVG-Eintrag: {e}")
         except Exception as e:
-            print(f"❌ Fehler beim BVG-Scraping: {e}")
+            print(f"⚠️ Fehler beim BVG-Eintrag: {e}")
+
+except Exception as e:
+    print(f"❌ Fehler beim BVG-Scraping: {e}")
+
         finally:
             await browser.close()
     return results

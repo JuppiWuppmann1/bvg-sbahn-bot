@@ -13,17 +13,23 @@ async def fetch_bvg():
             page_nr = 1
             while True:
                 logging.info(f"📡 BVG Seite {page_nr} laden...")
-                await page.wait_for_selector("div.m-stoerungsmeldung", timeout=15000)
-                items = await page.query_selector_all("div.m-stoerungsmeldung")
+                await page.wait_for_selector("li.DisruptionsOverviewVersionTwo_item__GvWfq", timeout=15000)
+                items = await page.query_selector_all("li.DisruptionsOverviewVersionTwo_item__GvWfq")
 
                 for item in items:
-                    titel = (await item.query_selector("h3")).inner_text() if await item.query_selector("h3") else "Unbekannt"
-                    beschreibung = (await item.inner_text()) or ""
-                    meldungen.append({
+                    titel_el = await item.query_selector("h3")
+                    titel = await titel_el.inner_text() if titel_el else "Unbekannt"
+
+                    beschreibung_el = await item.query_selector("div.NotificationItemVersionTwo_content__kw1Ui")
+                    beschreibung = await beschreibung_el.inner_text() if beschreibung_el else ""
+
+                    meldung = {
                         "quelle": "BVG",
                         "titel": titel.strip(),
                         "beschreibung": beschreibung.strip(),
-                    })
+                    }
+                    logging.info(f"📍 BVG-Meldung gefunden: {meldung['titel']}")
+                    meldungen.append(meldung)
 
                 next_button = await page.query_selector("a[aria-label='Nächste Seite']")
                 if next_button and await next_button.is_enabled():
@@ -38,3 +44,4 @@ async def fetch_bvg():
             await browser.close()
 
     return meldungen
+

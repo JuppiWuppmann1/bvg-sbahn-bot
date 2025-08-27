@@ -11,8 +11,9 @@ async def post_threads(threads):
         return
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)  # Setze headless=False für Debug
-        page = await browser.new_page()
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context()
+        page = await context.new_page()
         await page.set_viewport_size({"width": 1280, "height": 800})
 
         try:

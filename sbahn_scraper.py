@@ -3,7 +3,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 async def scrape_sbahn():
-    url = "https://sbahn.berlin/fahren/bauen-stoerung/"
+    url = "https://sbahn.berlin/fahren/bauen-stoerung"
     meldungen = []
 
     async with httpx.AsyncClient(timeout=30) as client:

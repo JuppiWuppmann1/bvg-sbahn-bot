@@ -41,19 +41,28 @@ def generate_tweets(meldungen):
         beschreibung = m.get("beschreibung", "").strip()
         titel = m.get("titel") or "Störung"
         extras = enrich_message(f"{titel} {beschreibung}")
-        prefix = "🚧 BVG:" if m.get("quelle") == "BVG" else "⚠️ S-Bahn:"
+        quelle = m.get("quelle")
+
+        # 🧭 Thread-Kopf mit Quelle und Titel
+        prefix = "🚧 BVG-Meldung:" if quelle == "BVG" else "⚠️ S-Bahn-Meldung:"
         header = f"{prefix} {titel}"
-        full_text = f"{header}\n📝 {beschreibung}\n{extras}"
 
-        if len(full_text) <= 280:
-            threads.append([full_text])
-        else:
-            parts = [header]
-            beschreibung_chunks = [beschreibung[i:i+240] for i in range(0, len(beschreibung), 240)]
-            for chunk in beschreibung_chunks:
-                parts.append(f"📝 {chunk.strip()}")
-            if extras:
-                parts.append(extras)
-            threads.append(parts)
+        # ✂️ Beschreibung in Absätze aufteilen
+        beschreibung_parts = re.split(r'(?<=[.!?])\s+', beschreibung)
+        beschreibung_parts = [part.strip() for part in beschreibung_parts if part.strip()]
+
+        # 🧵 Thread zusammenbauen
+        thread = [header]
+        for i, part in enumerate(beschreibung_parts, start=1):
+            tweet = f"📝 ({i}/{len(beschreibung_parts)}) {part}"
+            if len(tweet) > 280:
+                tweet = tweet[:277] + "…"  # Kürzen, falls nötig
+            thread.append(tweet)
+
+        # 🏁 Abschluss-Tweet mit Emojis & Hashtags
+        if extras:
+            thread.append(f"📌 {extras}")
+
+        threads.append(thread)
+
     return threads
-

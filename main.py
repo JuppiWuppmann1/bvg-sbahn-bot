@@ -41,6 +41,7 @@ async def job():
 
 @app.on_event("startup")
 async def startup_event():
+    install_playwright_browser()  # 👈 Browser installieren
     scheduler.add_job(job, "interval", minutes=5)
     scheduler.start()
     logging.info("⏰ Scheduler gestartet (alle 5 Minuten)")

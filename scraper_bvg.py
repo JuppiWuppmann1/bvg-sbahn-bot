@@ -1,49 +1,5 @@
 import logging
-import re
-from collections import OrderedDict
 from playwright.async_api import async_playwright
-
-def parse_bvg_details(text):
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    von, bis, linien, ort, maßnahme = None, "Bis auf weiteres", [], None, None
-
-    for i, line in enumerate(lines):
-        if re.match(r"(Bus|U-Bahn)?\s?[MXU]?\d{1,3}", line):
-            linien.append(line)
-        if "haltestelle verlegt" in line.lower():
-            maßnahme = "Haltestelle verlegt"
-        elif "störung" in line.lower():
-            maßnahme = "Störung"
-        elif "ersatzverkehr" in line.lower():
-            maßnahme = "Ersatzverkehr"
-        elif "pendelverkehr" in line.lower():
-            maßnahme = "Pendelverkehr"
-        elif "aufzugsstörung" in line.lower():
-            maßnahme = "Aufzugsstörung"
-
-        if any(k in line.lower() for k in ["straße", "platz", "bahnhof", "str."]):
-            ort = line
-
-        if i > 0 and lines[i - 1].lower().startswith("von"):
-            if re.match(r"\d{2}\.\d{2}\.\d{4}", line):
-                von = line
-                if i + 1 < len(lines) and re.match(r"\d{2}:\d{2}", lines[i + 1]):
-                    von += f" {lines[i + 1]}"
-        if i > 0 and lines[i - 1].lower().startswith("bis"):
-            if "auf weiteres" in line.lower():
-                bis = "Bis auf weiteres"
-            elif re.match(r"\d{2}\.\d{2}\.\d{4}", line):
-                bis = line
-                if i + 1 < len(lines) and re.match(r"\d{2}:\d{2}", lines[i + 1]):
-                    bis += f" {lines[i + 1]}"
-
-    return {
-        "von": von,
-        "bis": bis,
-        "linien": ", ".join(OrderedDict.fromkeys(linien)),
-        "maßnahme": maßnahme,
-        "ort": ort
-    }
 
 async def fetch_bvg():
     url = "https://www.bvg.de/de/verbindungen/stoerungsmeldungen"
@@ -52,52 +8,40 @@ async def fetch_bvg():
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
-        try:
-            await page.goto(url, timeout=60000)
-            page_nr = 1
-            while True:
-                logging.info(f"📡 BVG Seite {page_nr} laden...")
-                await page.wait_for_selector("li.DisruptionsOverviewVersionTwo_item__GvWfq", timeout=15000)
-                items = await page.query_selector_all("li.DisruptionsOverviewVersionTwo_item__GvWfq")
+        await page.goto(url, timeout=60000)
 
-                for item in items:
-                    titel_el = await item.query_selector("h3")
-                    titel = await titel_el.inner_text() if titel_el else "Unbekannt"
+        page_nr = 1
+        while True:
+            logging.info(f"📡 BVG Seite {page_nr} laden...")
+            await page.wait_for_selector("div.m-stoerungsmeldung", timeout=15000)
+            items = await page.query_selector_all("div.m-stoerungsmeldung")
 
-                    beschreibung_parts = await item.query_selector_all("div.NotificationItemVersionTwo_content__kw1Ui p")
-                    beschreibung = "\n".join([await part.inner_text() for part in beschreibung_parts]) if beschreibung_parts else ""
+            for item in items:
+                titel = (await item.query_selector("h3")).inner_text() if await item.query_selector("h3") else "Unbekannt"
+                detail = ""
+                try:
+                    detail_node = await item.query_selector("span._BdsFormattedText_jyyxg_2")
+                    if detail_node:
+                        detail = await detail_node.inner_text()
+                except:
+                    pass
 
-                    datum_el = await item.query_selector("time")
-                    aktualisiert_am = await datum_el.get_attribute("datetime") if datum_el else None
+                beschreibung = detail.strip() if detail else (await item.inner_text())
+                meldungen.append({
+                    "quelle": "BVG",
+                    "titel": titel.strip(),
+                    "beschreibung": beschreibung.strip(),
+                })
 
-                    details = parse_bvg_details(beschreibung)
+            # Nächste Seite?
+            next_button = await page.query_selector("a[aria-label='Nächste Seite']")
+            if next_button and await next_button.is_enabled():
+                await next_button.click()
+                await page.wait_for_timeout(2000)
+                page_nr += 1
+            else:
+                break
 
-                    meldung = {
-                        "quelle": "BVG",
-                        "titel": titel.strip(),
-                        "beschreibung": beschreibung.strip(),
-                        "linien": details["linien"],
-                        "maßnahme": details["maßnahme"],
-                        "von": details["von"],
-                        "bis": details["bis"],
-                        "ort": details["ort"],
-                        "aktualisiert_am": aktualisiert_am
-                    }
+        await browser.close()
 
-                    logging.info(f"📍 BVG-Meldung: {meldung['titel']} | Details: {details}")
-                    meldungen.append(meldung)
-
-                next_button = await page.query_selector("a[aria-label='Nächste Seite']")
-                if next_button and await next_button.is_enabled():
-                    await next_button.click()
-                    await page.wait_for_timeout(2000)
-                    page_nr += 1
-                else:
-                    break
-        except Exception as e:
-            logging.error(f"❌ Fehler beim BVG-Scraping: {e}")
-        finally:
-            await browser.close()
-
-    logging.info(f"✅ {len(meldungen)} Meldungen von BVG")
     return meldungen

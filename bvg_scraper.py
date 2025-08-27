@@ -13,20 +13,21 @@ async def scrape_bvg():
             r.raise_for_status()
             soup = BeautifulSoup(r.text, "html.parser")
 
-            for item in soup.select("div.teaser"):
-                titel = item.select_one("h3")
-                beschreibung = item.select_one("p")
-                t = titel.get_text(strip=True) if titel else ""
-                b = beschreibung.get_text(" ", strip=True) if beschreibung else ""
+            for item in soup.select("li.DisruptionsOverviewVersionTwo_item__GvWfq"):
+                titel_tag = item.select_one("h3")
+                beschreibung_tag = item.select_one("div.NotificationItemVersionTwo_content__kw1Ui p")
 
-                # 👉 Debug-Logging
-                logging.info(f"📢 Gefunden: {t} – {b[:100]}")
+                titel = titel_tag.get_text(strip=True) if titel_tag else ""
+                beschreibung = beschreibung_tag.get_text(" ", strip=True) if beschreibung_tag else ""
+
+                logging.info(f"📢 Gefunden: {titel} – {beschreibung[:100]}")
 
                 meldungen.append({
                     "quelle": "BVG",
-                    "titel": t,
-                    "beschreibung": b
+                    "titel": titel,
+                    "beschreibung": beschreibung
                 })
+
 
     logging.info(f"✅ BVG-Scraper hat {len(meldungen)} Meldungen gefunden.")
     return meldungen

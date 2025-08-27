@@ -1,6 +1,7 @@
 from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
 import logging
+import re
 
 async def scrape_bvg():
     meldungen = []
@@ -18,6 +19,9 @@ async def scrape_bvg():
 
             titel = titel_tag.get_text(strip=True) if titel_tag else ""
             beschreibung = beschreibung_tag.get_text(" ", strip=True) if beschreibung_tag else ""
+
+            # Bereinige Beschreibung
+            beschreibung = re.sub(r"(Ausführliche Informationen\s*)?(schließen\s*){1,}", "", beschreibung, flags=re.IGNORECASE)
 
             logging.info(f"🚇 Vollständige Meldung:\nTitel: {titel}\nBeschreibung:\n{beschreibung}\n{'-'*60}")
 

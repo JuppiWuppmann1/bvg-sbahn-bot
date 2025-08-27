@@ -1,6 +1,7 @@
 import logging
 import httpx
 from bs4 import BeautifulSoup
+import re
 
 async def scrape_sbahn():
     url = "https://sbahn.berlin/fahren/bauen-stoerung/"
@@ -20,9 +21,14 @@ async def scrape_sbahn():
             beschreibung_tag = item.select_one("div.c-construction-announcement-details")
 
             titel = titel_tag.get_text(strip=True) if titel_tag else ""
-            beschreibung = beschreibung_tag.get_text(" ", strip=True) if beschreibung_tag else ""
+            beschreibung_raw = beschreibung_tag.get_text(" ", strip=True) if beschreibung_tag else ""
 
-            logging.info(f"🚆 Gefunden: {titel} – {beschreibung[:100]}")
+            # 🔍 Beschreibung in sinnvolle Abschnitte aufteilen
+            beschreibung_parts = re.split(r'(?<=[.!?])\s+', beschreibung_raw)
+            beschreibung = "\n".join(beschreibung_parts)
+
+            # 🧾 Vollständige Meldung ins Log schreiben
+            logging.info(f"🚆 Vollständige Meldung:\nTitel: {titel}\nBeschreibung:\n{beschreibung}\n{'-'*80}")
 
             meldungen.append({
                 "quelle": "S-Bahn",

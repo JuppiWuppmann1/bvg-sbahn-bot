@@ -1,20 +1,20 @@
 import logging
-import httpx
-from bs4 import BeautifulSoup
 import re
+from bs4 import BeautifulSoup
+from playwright.async_api import async_playwright
 
 async def scrape_sbahn():
     url = "https://sbahn.berlin/fahren/bauen-stoerung/"
     meldungen = []
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (compatible; SBahn-Scraper/1.0; +https://bvg-sbahn-bot.onrender.com)"
-    }
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
+        await page.goto(url, timeout=60000)
+        await page.wait_for_timeout(3000)  # Warten auf JS-Inhalte
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.get(url, headers=headers)
-        r.raise_for_status()
-        soup = BeautifulSoup(r.text, "html.parser")
+        html = await page.content()
+        soup = BeautifulSoup(html, "html.parser")
 
         for item in soup.select("div.c-construction-announcement"):
             titel_tag = item.select_one("h3.o-construction-announcement-title__heading")
@@ -23,7 +23,10 @@ async def scrape_sbahn():
             titel = titel_tag.get_text(strip=True) if titel_tag else ""
             beschreibung_raw = beschreibung_tag.get_text(" ", strip=True) if beschreibung_tag else ""
 
-            # 🔍 Beschreibung in sinnvolle Abschnitte aufteilen
+            # 🧹 Entferne irrelevante UI-Texte
+            beschreibung_raw = re.sub(r"(Ausführliche Informationen\s*)?(schließen\s*){1,}", "", beschreibung_raw, flags=re.IGNORECASE)
+
+            # ✂️ Beschreibung in Absätze aufteilen
             beschreibung_parts = re.split(r'(?<=[.!?])\s+', beschreibung_raw)
             beschreibung = "\n".join(beschreibung_parts)
 
@@ -35,6 +38,8 @@ async def scrape_sbahn():
                 "titel": titel,
                 "beschreibung": beschreibung
             })
+
+        await browser.close()
 
     logging.info(f"✅ S-Bahn-Scraper hat {len(meldungen)} Meldungen gefunden.")
     return meldungen

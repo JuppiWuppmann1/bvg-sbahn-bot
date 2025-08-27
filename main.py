@@ -1,65 +1,52 @@
-import asyncio
 import logging
 from fastapi import FastAPI
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from scraper_bvg import fetch_bvg
-from scraper_sbahn import fetch_sbahn
-from utils import generate_tweets, post_threads, load_seen, save_seen
+from apscheduler.schedulers.background import BackgroundScheduler
+from scraper_bvg import scrape_bvg
+from scraper_sbahn import scrape_sbahn
+from utils import generate_tweets
+from x_poster import post_thread
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
 
 app = FastAPI()
-scheduler = AsyncIOScheduler()
-seen = load_seen()
 
-@app.get("/")
-def root():
-    return {"status": "ok", "message": "🚇 BVG / 🚆 S-Bahn Bot aktiv"}
+# damit wir nicht doppelt posten
+posted_ids = set()
 
-@app.get("/run")
-async def run_scraper():
-    global seen
-    logging.info("🚀 Starte Verarbeitung...")
+def job_run():
+    logging.info("🔄 Starte automatischen Scrape-Job...")
 
-    meldungen = []
+    # BVG + S-Bahn Scrapen
+    bvg_meldungen = scrape_bvg()
+    sbahn_meldungen = scrape_sbahn()
 
-    # BVG
-    try:
-        bvg = await fetch_bvg()
-        logging.info(f"✅ {len(bvg)} Meldungen von BVG")
-        meldungen.extend(bvg)
-    except Exception as e:
-        logging.error(f"❌ Fehler bei BVG: {e}")
+    logging.info(f"✅ {len(bvg_meldungen)} BVG-Meldungen gefunden")
+    logging.info(f"✅ {len(sbahn_meldungen)} S-Bahn-Meldungen gefunden")
 
-    # S-Bahn
-    try:
-        sbahn = await fetch_sbahn()
-        logging.info(f"✅ {len(sbahn)} Meldungen von S-Bahn")
-        meldungen.extend(sbahn)
-    except Exception as e:
-        logging.error(f"❌ Fehler bei S-Bahn: {e}")
+    # Tweets generieren
+    threads = generate_tweets(bvg_meldungen + sbahn_meldungen)
 
-    neue = []
-    for m in meldungen:
-        key = f"{m.get('quelle')}-{m.get('titel')}-{m.get('beschreibung')}"
-        if key not in seen:
-            seen[key] = True
-            neue.append(m)
+    for thread in threads:
+        # ID bauen (damit keine Dopplungen gepostet werden)
+        thread_id = hash(" ".join(thread))
+        if thread_id in posted_ids:
+            logging.info("⏭️ Meldung schon gepostet, überspringe...")
+            continue
 
-    logging.info(f"📊 {len(neue)} neue Meldungen erkannt")
-    save_seen(seen)
+        try:
+            post_thread(thread)
+            posted_ids.add(thread_id)
+            logging.info(f"🐦 Erfolgreich gepostet: {thread[0][:50]}...")
+        except Exception as e:
+            logging.error(f"❌ Fehler beim Posten: {e}")
 
-    if not neue:
-        return {"status": "done", "meldungen": 0, "threads": 0}
 
-    threads = generate_tweets(neue)
-    await post_threads(threads)
-
-    return {"status": "done", "meldungen": len(neue), "threads": len(threads)}
-
-# Scheduler: alle 5 Minuten
 @app.on_event("startup")
-async def start_scheduler():
-    scheduler.add_job(run_scraper, "interval", minutes=5)
+async def startup_event():
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(job_run, "interval", minutes=5)
     scheduler.start()
-
+    logging.info("⏰ Scheduler gestartet: alle 5 Minuten Scraping + Posting")

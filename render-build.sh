@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# Exit bei Fehlern
 set -o errexit
 
-# Installiere Dependencies
+echo "🚀 Installiere Python-Pakete..."
 pip install -r requirements.txt
 
-# Installiere Playwright Browser
-python -m playwright install --with-deps chromium
+echo "🚀 Installiere Playwright Browser..."
+playwright install chromium

@@ -24,7 +24,7 @@ async def scrape_sbahn():
             beschreibung_raw = beschreibung_tag.get_text(" ", strip=True) if beschreibung_tag else ""
 
             # 🧹 Entferne irrelevante UI-Texte
-            beschreibung_raw = re.sub(r"(Ausführliche Informationen\s*)?(schließen\s*){1,}", "", beschreibung_raw, flags=re.IGNORECASE)
+            beschreibung_raw = re.sub(r"(Ausführliche Informationen|Bauvideo|schließen)+", "", beschreibung_raw, flags=re.IGNORECASE)
 
             # ✂️ Beschreibung in Absätze aufteilen
             beschreibung_parts = re.split(r'(?<=[.!?])\s+', beschreibung_raw)

@@ -14,22 +14,18 @@ async def scrape_bvg():
 
         for page_num in range(1, 6):
             if page_num > 1:
+                # Scroll nach unten, damit Buttons sichtbar sind
                 await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                await page.wait_for_timeout(2000)
+                await page.wait_for_timeout(1000)
 
+                # Klicke auf Seitenbutton
                 button = await page.query_selector(f'button[aria-label="Seite {page_num}"]')
                 if button:
                     await button.click()
                     await page.wait_for_timeout(3000)
                 else:
-                    # Fallback: Mehr anzeigen
-                    mehr_button = await page.query_selector('button:has-text("Mehr anzeigen")')
-                    if mehr_button:
-                        await mehr_button.click()
-                        await page.wait_for_timeout(3000)
-                    else:
-                        logging.warning(f"⚠️ Seite {page_num} nicht klickbar.")
-                        continue
+                    logging.warning(f"⚠️ Seite {page_num} nicht klickbar.")
+                    continue
 
             html = await page.content()
             soup = BeautifulSoup(html, "html.parser")
@@ -41,6 +37,7 @@ async def scrape_bvg():
                 titel_raw = titel_tag.get_text(" ", strip=True) if titel_tag else ""
                 beschreibung_raw = beschreibung_tag.get_text(" ", strip=True) if beschreibung_tag else ""
 
+                # Bereinigung
                 titel = re.sub(r"\b(\w+)\1\b", r"\1", titel_raw)
                 beschreibung_raw = re.sub(r"(Ausführliche Informationen|Bauvideo|schließen)+", "", beschreibung_raw, flags=re.IGNORECASE)
                 beschreibung_raw = re.sub(r"\s{2,}", " ", beschreibung_raw).strip()

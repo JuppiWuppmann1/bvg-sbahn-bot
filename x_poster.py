@@ -18,8 +18,8 @@ async def post_threads(threads):
         try:
             logging.info("🔐 Starte Login bei X...")
             await page.goto("https://twitter.com/login", timeout=60000)
+            await page.wait_for_load_state("networkidle")
 
-            # Schritt 1: Benutzername
             await page.wait_for_selector('input[name="text"], input[name="username"]', timeout=20000)
             if await page.query_selector('input[name="text"]'):
                 await page.fill('input[name="text"]', user)
@@ -28,13 +28,11 @@ async def post_threads(threads):
             await page.keyboard.press("Enter")
             await page.wait_for_timeout(3000)
 
-            # Schritt 2: Passwort
             await page.wait_for_selector('input[name="password"]', timeout=20000)
             await page.fill('input[name="password"]', pw)
             await page.keyboard.press("Enter")
             await page.wait_for_timeout(5000)
 
-            # Schritt 3: Navigiere zur Tweet-Seite
             await page.goto("https://twitter.com/compose/tweet", timeout=60000)
             await page.wait_for_selector('div[aria-label="Tweet text"]', timeout=20000)
 
@@ -44,11 +42,10 @@ async def post_threads(threads):
                     tweet_box = await page.query_selector('div[aria-label="Tweet text"]')
                     if tweet_box:
                         await tweet_box.click()
-                        await tweet_box.fill("")  # Leeren für Sicherheit
+                        await tweet_box.fill("")
                         await tweet_box.type(tweet)
                         await page.wait_for_timeout(1000)
 
-                        # Button-Logik
                         tweet_button = await page.query_selector('div[data-testid="tweetButtonInline"]') or await page.query_selector('div[data-testid="tweetButton"]')
                         if tweet_button:
                             await tweet_button.click()
@@ -66,3 +63,4 @@ async def post_threads(threads):
             logging.error(f"❌ Fehler beim Tweeten: {e}\n🔍 HTML-Snapshot:\n{html[:1000]}")
         finally:
             await browser.close()
+

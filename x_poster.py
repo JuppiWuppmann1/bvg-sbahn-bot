@@ -20,20 +20,23 @@ async def post_threads(threads):
             await page.goto("https://twitter.com/login", timeout=60000)
 
             # Schritt 1: Benutzername
-            await page.wait_for_selector('input[name="text"]', timeout=15000)
-            await page.fill('input[name="text"]', user)
+            await page.wait_for_selector('input[name="text"], input[name="username"]', timeout=20000)
+            if await page.query_selector('input[name="text"]'):
+                await page.fill('input[name="text"]', user)
+            else:
+                await page.fill('input[name="username"]', user)
             await page.keyboard.press("Enter")
             await page.wait_for_timeout(3000)
 
             # Schritt 2: Passwort
-            await page.wait_for_selector('input[name="password"]', timeout=15000)
+            await page.wait_for_selector('input[name="password"]', timeout=20000)
             await page.fill('input[name="password"]', pw)
             await page.keyboard.press("Enter")
             await page.wait_for_timeout(5000)
 
             # Schritt 3: Navigiere zur Tweet-Seite
             await page.goto("https://twitter.com/compose/tweet", timeout=60000)
-            await page.wait_for_selector('div[aria-label="Tweet text"]', timeout=15000)
+            await page.wait_for_selector('div[aria-label="Tweet text"]', timeout=20000)
 
             for thread in threads:
                 first = True
@@ -45,17 +48,13 @@ async def post_threads(threads):
                         await tweet_box.type(tweet)
                         await page.wait_for_timeout(1000)
 
-                        if first:
-                            # Versuche beide mögliche Buttons
-                            if await page.query_selector('div[data-testid="tweetButtonInline"]'):
-                                await page.click('div[data-testid="tweetButtonInline"]')
-                            elif await page.query_selector('div[data-testid="tweetButton"]'):
-                                await page.click('div[data-testid="tweetButton"]')
-                            else:
-                                logging.warning("⚠️ Kein Tweet-Button gefunden für ersten Tweet.")
-                            first = False
+                        # Button-Logik
+                        tweet_button = await page.query_selector('div[data-testid="tweetButtonInline"]') or await page.query_selector('div[data-testid="tweetButton"]')
+                        if tweet_button:
+                            await tweet_button.click()
                         else:
-                            await page.click('div[data-testid="tweetButton"]')
+                            logging.warning("⚠️ Kein Tweet-Button gefunden.")
+                        first = False
 
                         await page.wait_for_timeout(3000)
                     else:

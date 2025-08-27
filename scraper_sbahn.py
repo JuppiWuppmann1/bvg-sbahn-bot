@@ -1,34 +1,33 @@
 import logging
-from playwright.async_api import async_playwright
+import httpx
+from bs4 import BeautifulSoup
 
-async def fetch_sbahn():
-    url = "https://sbahn.berlin/fahren/bauen-stoerung/"
+BASE_URL = "https://sbahn.berlin/meldungen/"
+
+def scrape_sbahn():
     meldungen = []
+    logging.info("📡 Scraping S-Bahn...")
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
-        await page.goto(url, timeout=60000)
+    try:
+        resp = httpx.get(BASE_URL, timeout=30)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
 
-        await page.wait_for_selector("div.c-teaser", timeout=20000)
-        items = await page.query_selector_all("div.c-teaser")
-
+        items = soup.find_all("div", class_="teaser")
         for item in items:
-            titel = (await item.query_selector("h3")).inner_text() if await item.query_selector("h3") else "Unbekannt"
-            beschreibung = ""
-            try:
-                desc_node = await item.query_selector("p")
-                if desc_node:
-                    beschreibung = await desc_node.inner_text()
-            except:
-                pass
+            titel = item.find("h3")
+            beschreibung = item.find("p")
 
             meldungen.append({
                 "quelle": "S-Bahn",
-                "titel": titel.strip(),
-                "beschreibung": beschreibung.strip(),
+                "titel": titel.get_text(strip=True) if titel else "Unbekannt",
+                "beschreibung": beschreibung.get_text(" ", strip=True) if beschreibung else "",
+                "zeitraum": None,
+                "linien": []
             })
 
-        await browser.close()
+        logging.info(f"✅ {len(meldungen)} Meldungen von S-Bahn")
+    except Exception as e:
+        logging.error(f"❌ Fehler beim S-Bahn-Scraping: {e}")
 
     return meldungen

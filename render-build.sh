@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
-# Render Build Script
+set -o errexit
+
 echo "🚀 Installiere Playwright Browser..."
-playwright install --with-deps
+python -m playwright install --with-deps

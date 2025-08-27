@@ -5,4 +5,4 @@ echo "🚀 Installiere Python-Pakete..."
 pip install -r requirements.txt
 
 echo "🚀 Installiere Playwright Browser..."
-playwright install chromium
+python -m playwright install chromium

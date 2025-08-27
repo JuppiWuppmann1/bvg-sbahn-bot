@@ -1,7 +1,6 @@
-fastapi
-uvicorn
 httpx
 beautifulsoup4
 playwright
+fastapi
+uvicorn
 apscheduler
-python-dotenv

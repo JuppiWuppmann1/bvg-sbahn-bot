@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import subprocess
 from fastapi import FastAPI
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -14,7 +15,16 @@ app = FastAPI()
 scheduler = AsyncIOScheduler()
 seen = load_seen()
 
+# 🛠️ Playwright-Browserinstallation
+def install_playwright_browser():
+    try:
+        logging.info("🛠️ Installiere Playwright-Browser...")
+        subprocess.run(["python", "-m", "playwright", "install", "chromium"], check=True)
+        logging.info("✅ Playwright-Browser erfolgreich installiert.")
+    except subprocess.CalledProcessError as e:
+        logging.error(f"❌ Fehler bei der Playwright-Installation: {e}")
 
+# 🔄 Hauptjob für Scraping & Posting
 async def job():
     global seen
     logging.info("🔎 Starte neuen Check...")
@@ -38,15 +48,15 @@ async def job():
     else:
         logging.info("ℹ️ Keine neuen Meldungen.")
 
-
+# 🚀 Startup-Event: Browser installieren & Scheduler starten
 @app.on_event("startup")
 async def startup_event():
-    install_playwright_browser()  # 👈 Browser installieren
+    install_playwright_browser()
     scheduler.add_job(job, "interval", minutes=5)
     scheduler.start()
     logging.info("⏰ Scheduler gestartet (alle 5 Minuten)")
 
-
+# 🧪 Manuelles Auslösen via Endpoint
 @app.get("/run")
 async def run_once():
     try:

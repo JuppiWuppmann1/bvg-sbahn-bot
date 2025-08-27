@@ -1,9 +1,9 @@
-services:
+services: 
   - type: web
     name: bvg-sbahn-bot
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && ./render-build.sh
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: TWITTER_USER

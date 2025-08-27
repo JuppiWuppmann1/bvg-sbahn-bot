@@ -1,7 +1,7 @@
 import httpx
 from bs4 import BeautifulSoup
 
-BASE_URL = "https://www.bvg.de/de/verbindungen/verkehrsmeldungen"
+BASE_URL = "https://www.bvg.de/de/verbindungen/stoerungsmeldungen"
 
 async def scrape_bvg():
     meldungen = []

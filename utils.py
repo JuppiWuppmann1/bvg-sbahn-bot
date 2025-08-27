@@ -1,5 +1,6 @@
 import os, json, re, logging
 from collections import OrderedDict
+from datetime import datetime
 
 SEEN_FILE = "seen.json"
 
@@ -12,8 +13,6 @@ def load_seen():
 def save_seen(seen):
     with open(SEEN_FILE, "w") as f:
         json.dump(seen, f)
-
-from datetime import datetime
 
 def enrich_message(text: str) -> str:
     mapping = {
@@ -31,56 +30,49 @@ def enrich_message(text: str) -> str:
 
     emojis, hashtags = [], []
 
-    # 🔍 Basis-Hashtags & Emojis
     for key, (emoji, hashtag) in mapping.items():
         if re.search(rf"\b{re.escape(key)}\b", text, re.IGNORECASE):
             emojis.append(emoji)
             hashtags.extend(hashtag.split())
 
-    # 📅 Datum & Uhrzeit
     now = datetime.now()
     datum = now.strftime("%d.%m.%Y")
     uhrzeit = now.strftime("%H:%M")
     zeitstempel = f"🕒 {datum} – {uhrzeit}"
 
-    # 🚈 Linienkennung extrahieren
     linien_tags = set()
     for match in re.findall(r"\bS\d{1,2}\b", text):
         linien_tags.add(f"#{match}")
     for match in re.findall(r"\bM\d{1,2}\b|\b\d{2,3}\b", text):
         linien_tags.add(f"#{match}_BVG")
 
-    # 🧹 Duplikate entfernen & sortieren
     emojis = " ".join(OrderedDict.fromkeys(emojis))
     hashtags = " ".join(OrderedDict.fromkeys(list(linien_tags) + hashtags + ["#Berlin"]))
 
     return f"{emojis} {zeitstempel}\n{hashtags}".strip()
 
+def extract_zeit(text: str) -> str:
+    match = re.search(r"Von\s+\d{2}\.\d{2}\.\d{4}\s+\d{1,2}:\d{2}", text)
+    return match.group(0) if match else ""
+
 def generate_tweets(meldungen):
     threads = []
     for m in meldungen:
         beschreibung = m.get("beschreibung", "").strip()
-        titel = m.get("titel") or "Störung"
-        extras = enrich_message(f"{titel} {beschreibung}")
-        quelle = m.get("quelle")
+        zeit = extract_zeit(m.get("titel", ""))
+        extras = enrich_message(beschreibung)
 
-        # 🧭 Thread-Kopf mit Quelle und Titel
-        prefix = "🚧 BVG-Meldung:" if quelle == "BVG" else "⚠️ S-Bahn-Meldung:"
-        header = f"{prefix} {titel}"
-
-        # ✂️ Beschreibung in Absätze aufteilen
+        header = f"{zeit}" if zeit else "🕒 Neue Meldung"
         beschreibung_parts = re.split(r'(?<=[.!?])\s+', beschreibung)
         beschreibung_parts = [part.strip() for part in beschreibung_parts if part.strip()]
 
-        # 🧵 Thread zusammenbauen
         thread = [header]
         for i, part in enumerate(beschreibung_parts, start=1):
             tweet = f"📝 ({i}/{len(beschreibung_parts)}) {part}"
             if len(tweet) > 280:
-                tweet = tweet[:277] + "…"  # Kürzen, falls nötig
+                tweet = tweet[:277] + "…"
             thread.append(tweet)
 
-        # 🏁 Abschluss-Tweet mit Emojis & Hashtags
         if extras:
             thread.append(f"📌 {extras}")
 

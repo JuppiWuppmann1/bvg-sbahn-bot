@@ -1,19 +1,15 @@
-import logging
-import httpx
+from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
 
 async def scrape_bvg():
-    url = "https://www.bvg.de/de/verbindungen/stoerungsmeldungen"
     meldungen = []
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (compatible; BVG-Scraper/1.0; +https://bvg-sbahn-bot.onrender.com)"
-    }
-
-    async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.get(url, headers=headers)
-        r.raise_for_status()
-        soup = BeautifulSoup(r.text, "html.parser")
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
+        await page.goto("https://www.bvg.de/de/verbindungen/stoerungsmeldungen", timeout=60000)
+        await page.wait_for_timeout(3000)
+        html = await page.content()
+        soup = BeautifulSoup(html, "html.parser")
 
         for item in soup.select("li.DisruptionsOverviewVersionTwo_item__GvWfq"):
             titel_tag = item.select_one("h3")
@@ -22,7 +18,7 @@ async def scrape_bvg():
             titel = titel_tag.get_text(strip=True) if titel_tag else ""
             beschreibung = beschreibung_tag.get_text(" ", strip=True) if beschreibung_tag else ""
 
-            logging.info(f"📢 Gefunden: {titel} – {beschreibung[:100]}")
+            logging.info(f"🚇 Vollständige Meldung:\nTitel: {titel}\nBeschreibung:\n{beschreibung}\n{'-'*60}")
 
             meldungen.append({
                 "quelle": "BVG",
@@ -30,5 +26,5 @@ async def scrape_bvg():
                 "beschreibung": beschreibung
             })
 
-    logging.info(f"✅ BVG-Scraper hat {len(meldungen)} Meldungen gefunden.")
+        await browser.close()
     return meldungen

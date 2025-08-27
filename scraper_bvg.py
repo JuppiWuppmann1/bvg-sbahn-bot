@@ -1,47 +1,34 @@
 import logging
-from playwright.async_api import async_playwright
+import httpx
+from bs4 import BeautifulSoup
 
-async def fetch_bvg():
-    url = "https://www.bvg.de/de/verbindungen/stoerungsmeldungen"
+BASE_URL = "https://www.bvg.de/de/verbindungen/stoerungen"
+
+def scrape_bvg():
     meldungen = []
+    logging.info("📡 Scraping BVG...")
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
-        await page.goto(url, timeout=60000)
+    try:
+        resp = httpx.get(BASE_URL, timeout=30)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
 
-        page_nr = 1
-        while True:
-            logging.info(f"📡 BVG Seite {page_nr} laden...")
-            await page.wait_for_selector("div.m-stoerungsmeldung", timeout=15000)
-            items = await page.query_selector_all("div.m-stoerungsmeldung")
+        items = soup.find_all("div", class_="NotificationItemVersionTwo_root__")
+        for item in items:
+            titel = item.find("h3")
+            details = item.find("span", class_="NotificationItemVersionTwo_content__kw1Ui")
+            zeitraum = item.find("div", class_="NotificationItemVersionTwo_date__")
 
-            for item in items:
-                titel = (await item.query_selector("h3")).inner_text() if await item.query_selector("h3") else "Unbekannt"
-                detail = ""
-                try:
-                    detail_node = await item.query_selector("span._BdsFormattedText_jyyxg_2")
-                    if detail_node:
-                        detail = await detail_node.inner_text()
-                except:
-                    pass
+            meldungen.append({
+                "quelle": "BVG",
+                "titel": titel.get_text(strip=True) if titel else "Unbekannt",
+                "beschreibung": details.get_text(" ", strip=True) if details else "",
+                "zeitraum": zeitraum.get_text(" ", strip=True) if zeitraum else None,
+                "linien": []  # kannst du später erweitern
+            })
 
-                beschreibung = detail.strip() if detail else (await item.inner_text())
-                meldungen.append({
-                    "quelle": "BVG",
-                    "titel": titel.strip(),
-                    "beschreibung": beschreibung.strip(),
-                })
-
-            # Nächste Seite?
-            next_button = await page.query_selector("a[aria-label='Nächste Seite']")
-            if next_button and await next_button.is_enabled():
-                await next_button.click()
-                await page.wait_for_timeout(2000)
-                page_nr += 1
-            else:
-                break
-
-        await browser.close()
+        logging.info(f"✅ {len(meldungen)} Meldungen von BVG")
+    except Exception as e:
+        logging.error(f"❌ Fehler beim BVG-Scraping: {e}")
 
     return meldungen

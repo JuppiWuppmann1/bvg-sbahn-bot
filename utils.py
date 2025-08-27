@@ -1,7 +1,4 @@
-import os
-import json
-import logging
-import re
+import os, json, re, logging
 from collections import OrderedDict
 
 SEEN_FILE = "seen.json"
@@ -29,18 +26,13 @@ def enrich_message(text: str) -> str:
         "Ausfall": ("❌", "#Ausfall"),
         "Schienenersatzverkehr": ("🚍", "#SEV"),
     }
-
     emojis, hashtags = [], []
     for key, (emoji, hashtag) in mapping.items():
-        # Wortgrenzen beachten → keine Dopplungen wie "Bus M37 Bus"
         if re.search(rf"\b{re.escape(key)}\b", text, re.IGNORECASE):
             emojis.append(emoji)
             hashtags.extend(hashtag.split())
-
-    # Dopplungen raus (OrderedDict trick)
     emojis = " ".join(OrderedDict.fromkeys(emojis))
     hashtags = " ".join(OrderedDict.fromkeys(hashtags + ["#Berlin"]))
-
     return f"{emojis} {hashtags}".strip()
 
 def generate_tweets(meldungen):
@@ -51,21 +43,17 @@ def generate_tweets(meldungen):
         extras = enrich_message(f"{titel} {beschreibung}")
         prefix = "🚧 BVG:" if m.get("quelle") == "BVG" else "⚠️ S-Bahn:"
         header = f"{prefix} {titel}"
-
-        full_text = f"{header}\n📝 {beschreibung}\n{extras}".strip()
+        full_text = f"{header}\n📝 {beschreibung}\n{extras}"
 
         if len(full_text) <= 280:
             threads.append([full_text])
         else:
-            # Text in Stücke <280 Zeichen
             parts = [header]
-            beschreibung_chunks = [
-                beschreibung[i:i+240] for i in range(0, len(beschreibung), 240)
-            ]
+            beschreibung_chunks = [beschreibung[i:i+240] for i in range(0, len(beschreibung), 240)]
             for chunk in beschreibung_chunks:
                 parts.append(f"📝 {chunk.strip()}")
             if extras:
                 parts.append(extras)
             threads.append(parts)
-
     return threads
+

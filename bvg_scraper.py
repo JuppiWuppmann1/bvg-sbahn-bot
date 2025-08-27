@@ -3,7 +3,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 async def scrape_bvg():
-    url_template = "https://www.bvg.de/de/verbindungen/stoerungsmeldungen/"
+    url_template = "https://www.bvg.de/de/verbindungen/stoerungsmeldungen"
     meldungen = []
 
     async with httpx.AsyncClient(timeout=30) as client:

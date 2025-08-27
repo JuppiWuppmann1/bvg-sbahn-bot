@@ -1,21 +1,21 @@
 import os
+import json
 import logging
 import re
-import hashlib
 from collections import OrderedDict
 from playwright.async_api import async_playwright
 
-posted_hashes = set()
+SEEN_FILE = "seen.json"
 
-def hash_meldung(meldung: dict) -> str:
-    basis = f"{meldung.get('quelle')}|{meldung.get('titel')}|{meldung.get('beschreibung')}"
-    return hashlib.sha256(basis.encode("utf-8")).hexdigest()
+def load_seen():
+    if os.path.exists(SEEN_FILE):
+        with open(SEEN_FILE, "r") as f:
+            return json.load(f)
+    return {}
 
-def is_new(meldung: dict) -> bool:
-    return hash_meldung(meldung) not in posted_hashes
-
-def mark_as_posted(meldung: dict):
-    posted_hashes.add(hash_meldung(meldung))
+def save_seen(seen):
+    with open(SEEN_FILE, "w") as f:
+        json.dump(seen, f)
 
 def enrich_message(text: str) -> str:
     mapping = {
@@ -76,50 +76,32 @@ async def post_threads(threads):
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context()
-        page = await context.new_page()
+        page = await browser.new_page()
 
         try:
             logging.info("🔐 Starte Login bei X...")
-            await page.goto("https://x.com/i/flow/login", timeout=60000)
+            await page.goto("https://twitter.com/login", timeout=60000)
 
-            await page.wait_for_selector('input', timeout=15000)
-            inputs = await page.query_selector_all('input')
-            for inp in inputs:
-                placeholder = await inp.get_attribute("placeholder")
-                if placeholder and "Telefonnummer" in placeholder:
-                    await inp.fill(user)
-                    await inp.press("Enter")
-                    break
+            await page.fill('input[name="text"]', user)
+            await page.keyboard.press("Enter")
             await page.wait_for_timeout(3000)
 
-            await page.wait_for_selector('input[name="password"]', timeout=15000)
             await page.fill('input[name="password"]', pw)
             await page.keyboard.press("Enter")
-            await page.wait_for_timeout(5000)
-
-            if await page.query_selector("iframe[src*='captcha']"):
-                logging.error("🛑 Captcha erkannt – Login blockiert.")
-                return
-
-            await page.goto("https://x.com/compose/tweet", timeout=30000)
-            await page.wait_for_selector('div[aria-label="Tweet text"]', timeout=20000)
+            await page.wait_for_timeout(7000)
 
             for thread in threads:
                 first = True
                 for tweet in thread:
-                    tweet_box = page.locator('div[aria-label="Tweet text"]')
-                    await tweet_box.click()
-                    await tweet_box.fill(tweet)
-                    await page.wait_for_timeout(1000)
-
-                    await page.click('div[data-testid="tweetButtonInline"]')
-                    await page.wait_for_timeout(3000)
-
+                    await page.click('div[aria-label="Tweet text"]')
+                    await page.keyboard.type(tweet)
                     if first:
+                        await page.click('div[data-testid="tweetButtonInline"]')
                         first = False
-                    await page.goto("https://x.com/compose/tweet", timeout=30000)
-                    await page.wait_for_selector('div[aria-label="Tweet text"]', timeout=20000)
+                        await page.wait_for_timeout(3000)
+                    else:
+                        await page.click('div[data-testid="tweetButton"]')
+                        await page.wait_for_timeout(3000)
 
             logging.info("✅ Alle Tweets gesendet!")
         except Exception as e:

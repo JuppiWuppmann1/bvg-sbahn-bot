@@ -3,28 +3,31 @@ import httpx
 from bs4 import BeautifulSoup
 
 async def scrape_sbahn():
-    url = "https://sbahn.berlin/fahren/bauen-stoerung"
+    url = "https://sbahn.berlin/fahren/bauen-stoerung/"
     meldungen = []
 
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; SBahn-Scraper/1.0; +https://bvg-sbahn-bot.onrender.com)"
+    }
+
     async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.get(url)
+        r = await client.get(url, headers=headers)
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
 
-        # Beispiel: alle Cards mit Störungsmeldungen
-        for item in soup.select("div.card"):
-            titel = item.select_one("h3, h2")
-            beschreibung = item.select_one("p")
-            t = titel.get_text(strip=True) if titel else ""
-            b = beschreibung.get_text(" ", strip=True) if beschreibung else ""
+        for item in soup.select("div.c-construction-announcement"):
+            titel_tag = item.select_one("h3.o-construction-announcement-title__heading")
+            beschreibung_tag = item.select_one("div.c-construction-announcement-details")
 
-            # 👉 Debug-Logging
-            logging.info(f"🚆 Gefunden: {t} – {b[:100]}")
+            titel = titel_tag.get_text(strip=True) if titel_tag else ""
+            beschreibung = beschreibung_tag.get_text(" ", strip=True) if beschreibung_tag else ""
+
+            logging.info(f"🚆 Gefunden: {titel} – {beschreibung[:100]}")
 
             meldungen.append({
                 "quelle": "S-Bahn",
-                "titel": t,
-                "beschreibung": b
+                "titel": titel,
+                "beschreibung": beschreibung
             })
 
     logging.info(f"✅ S-Bahn-Scraper hat {len(meldungen)} Meldungen gefunden.")

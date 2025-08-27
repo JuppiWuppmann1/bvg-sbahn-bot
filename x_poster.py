@@ -18,28 +18,39 @@ async def post_threads(threads):
             logging.info("🔐 Starte Login bei X...")
             await page.goto("https://twitter.com/login", timeout=60000)
 
+            # Login-Sequenz
+            await page.wait_for_selector('input[name="text"]', timeout=10000)
             await page.fill('input[name="text"]', user)
             await page.keyboard.press("Enter")
             await page.wait_for_timeout(2000)
 
+            await page.wait_for_selector('input[name="password"]', timeout=10000)
             await page.fill('input[name="password"]', pw)
             await page.keyboard.press("Enter")
             await page.wait_for_timeout(5000)
+
+            # Warte auf Tweet-Feld
+            await page.goto("https://twitter.com/compose/tweet", timeout=60000)
+            await page.wait_for_selector('div[aria-label="Tweet text"]', timeout=10000)
 
             for thread in threads:
                 first = True
                 for tweet in thread:
                     await page.click('div[aria-label="Tweet text"]')
                     await page.keyboard.type(tweet)
+                    await page.wait_for_timeout(1000)
+
                     if first:
                         await page.click('div[data-testid="tweetButtonInline"]')
                         first = False
                     else:
                         await page.click('div[data-testid="tweetButton"]')
+
                     await page.wait_for_timeout(3000)
 
             logging.info("✅ Alle Tweets gesendet!")
         except Exception as e:
-            logging.error(f"❌ Fehler beim Tweeten: {e}")
+            logging.error(f"❌ Fehler beim Tweeten: {e}", exc_info=True)
         finally:
             await browser.close()
+

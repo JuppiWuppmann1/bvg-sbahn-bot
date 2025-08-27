@@ -14,13 +14,22 @@ async def scrape_bvg():
 
         for page_num in range(1, 6):
             if page_num > 1:
+                await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                await page.wait_for_timeout(2000)
+
                 button = await page.query_selector(f'button[aria-label="Seite {page_num}"]')
                 if button:
                     await button.click()
                     await page.wait_for_timeout(3000)
                 else:
-                    logging.warning(f"⚠️ Seite {page_num} nicht klickbar.")
-                    continue
+                    # Fallback: Mehr anzeigen
+                    mehr_button = await page.query_selector('button:has-text("Mehr anzeigen")')
+                    if mehr_button:
+                        await mehr_button.click()
+                        await page.wait_for_timeout(3000)
+                    else:
+                        logging.warning(f"⚠️ Seite {page_num} nicht klickbar.")
+                        continue
 
             html = await page.content()
             soup = BeautifulSoup(html, "html.parser")

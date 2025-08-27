@@ -48,5 +48,10 @@ async def startup_event():
 
 @app.get("/run")
 async def run_once():
-    await job()
-    return {"status": "done"}
+    try:
+        logging.info("🚀 /run endpoint aufgerufen")
+        await job()
+        return {"status": "ok"}
+    except Exception as e:
+        logging.error(f"❌ Fehler in /run: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}

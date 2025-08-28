@@ -18,7 +18,16 @@ async def login_and_save_cookies(page, username, password):
     await page.fill("input[name='password']", password)
     await page.press("input[name='password']", "Enter")
 
-    await page.wait_for_selector("nav", timeout=60000)  # warten bis eingeloggt
+    try:
+        # Warte auf etwas, das NUR eingeloggt sichtbar ist
+        await page.wait_for_selector("div[data-testid='tweetTextarea_0']", timeout=60000)
+    except Exception as e:
+        logging.error(f"❌ Login-Check fehlgeschlagen: {e}")
+        await page.screenshot(path="login_failed.png")
+        html = await page.content()
+        Path("login_failed.html").write_text(html, encoding="utf-8")
+        raise
+
     logging.info("✅ Login erfolgreich, speichere Cookies...")
     cookies = await page.context.cookies()
     COOKIES_FILE.write_text(json.dumps(cookies))
@@ -48,7 +57,7 @@ async def post_threads(threads):
         if not await load_cookies_if_exist(context):
             await login_and_save_cookies(page, username, password)
 
-        # sicherstellen dass wir eingeloggt sind
+        # sicherstellen, dass wir eingeloggt sind
         await page.goto("https://twitter.com/home", timeout=60000)
         if "login" in page.url:
             logging.info("⚠️ Cookies ungültig, erneut einloggen...")
@@ -73,6 +82,8 @@ async def post_threads(threads):
                 await asyncio.sleep(5)
             except Exception as e:
                 html = await page.content()
-                logging.error(f"❌ Fehler beim Tweeten: {e}\n🔍 HTML-Snapshot:\n{html[:1000]}")
+                Path(f"tweet_error_{i}.html").write_text(html, encoding="utf-8")
+                await page.screenshot(path=f"tweet_error_{i}.png")
+                logging.error(f"❌ Fehler beim Tweeten: {e} (siehe tweet_error_{i}.html / .png)")
 
         await browser.close()

@@ -7,7 +7,7 @@
     "start": "node x_bridge.js"
   },
   "dependencies": {
-    "puppeteer-core": "^21.3.0"
+    "puppeteer": "^21.3.0"
   },
   "author": "",
   "license": "MIT"

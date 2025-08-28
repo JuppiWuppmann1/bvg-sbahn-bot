@@ -30,7 +30,6 @@ async def scrape_bvg():
                 try:
                     await page.wait_for_timeout(2000)
                     found = False
-
                     pagination = await page.query_selector("nav[aria-label='Pagination']")
                     if pagination:
                         buttons = await pagination.query_selector_all("button, a")
@@ -47,12 +46,10 @@ async def scrape_bvg():
                             except Exception as inner:
                                 logging.debug(f"🔍 Button-Fehler: {inner}")
                                 continue
-
                     if not found:
                         logging.info(f"⏭️ Seite {page_num} nicht verfügbar – Paginierungs-Button nicht klickbar.")
                         await page.screenshot(path=f"page_{page_num}_missing_button.png")
                         continue
-
                 except Exception as e:
                     logging.warning(f"⚠️ Seite {page_num} konnte nicht geladen werden: {e}")
                     continue
@@ -63,11 +60,9 @@ async def scrape_bvg():
                 items = soup.select("li.DisruptionsOverviewVersionTwo_item__GvWfq")
 
                 if page_num == 1:
-                    # Debug-Ausgabe für Seite 1
                     Path("bvg_debug.html").write_text(html, encoding="utf-8")
                     await page.screenshot(path="bvg_debug_screenshot.png")
                     logging.info("📸 Screenshot und HTML von Seite 1 gespeichert.")
-
                     pagination = await page.query_selector("nav[aria-label='Pagination']")
                     if pagination:
                         buttons = await pagination.query_selector_all("button, a")
@@ -79,7 +74,6 @@ async def scrape_bvg():
                                 logging.warning(f"⚠️ Fehler beim Lesen von Button {i+1}: {e}")
                     else:
                         logging.warning("⚠️ Keine Paginierung gefunden.")
-
                     logging.info(f"📦 Gefundene Meldungen: {len(items)}")
                     for i, item in enumerate(items[:5], 1):
                         beschreibung = item.select_one(".NotificationItemVersionTwo_content__kw1Ui p")
@@ -106,7 +100,6 @@ async def scrape_bvg():
                         }
                         logging.info(f"🕒 {meldung['zeit']}\n📝 {meldung['beschreibung']}\n🚏 {meldung['haltestelle']}\n🚍 {meldung['linien']}\n🏷️ {meldung['typ']}\n{'-'*60}")
                         meldungen.append(meldung)
-
             except Exception as e:
                 logging.error(f"❌ Fehler beim Parsen der Seite {page_num}: {e}")
 

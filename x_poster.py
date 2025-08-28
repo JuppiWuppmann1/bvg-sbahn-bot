@@ -10,25 +10,27 @@ async def login_and_save_cookies(page, username, password, max_retries=3):
     for attempt in range(1, max_retries + 1):
         try:
             logging.info(f"🔐 Login-Versuch {attempt} bei X...")
-            await page.goto("https://twitter.com/login", timeout=60000)
+            await page.goto("https://x.com/i/flow/login", timeout=60000)
 
-            # Benutzername oder Telefonnummer
-            await page.wait_for_selector("input[name='text']", timeout=30000)
-            await page.fill("input[name='text']", username)
-            await page.press("input[name='text']", "Enter")
+            # Schritt 1: Benutzername eingeben
+            await page.wait_for_selector("input", timeout=30000)
+            await page.fill("input", username)
+            await page.keyboard.press("Enter")
+            await page.wait_for_timeout(3000)
 
-            # Passwortfeld
-            await page.wait_for_selector("input[name='password']", timeout=30000)
-            await page.fill("input[name='password']", password)
-            await page.press("input[name='password']", "Enter")
-
-            # Warte auf Weiterleitung zur Startseite
+            # Schritt 2: Passwortfeld erscheint
+            await page.wait_for_selector("input[type='password']", timeout=30000)
+            await page.fill("input[type='password']", password)
+            await page.keyboard.press("Enter")
             await page.wait_for_timeout(5000)
+
+            # Schritt 3: Prüfen ob eingeloggt
+            await page.goto("https://x.com/home", timeout=60000)
             current_url = page.url
             logging.info(f"🔍 Aktuelle URL nach Login: {current_url}")
 
-            if "login" in current_url:
-                raise Exception("Noch auf Login-Seite – Login fehlgeschlagen")
+            if "login" in current_url or "flow" in current_url:
+                raise Exception("Noch im Login-Flow – Login fehlgeschlagen")
 
             # Prüfe auf Tweet-Feld oder Compose-Button
             if await page.query_selector("a[href='/compose/tweet']") or await page.query_selector("div[data-testid='tweetTextarea_0']"):
@@ -72,15 +74,15 @@ async def post_threads(threads):
         if not await load_cookies_if_exist(context):
             await login_and_save_cookies(page, username, password)
 
-        await page.goto("https://twitter.com/home", timeout=60000)
-        if "login" in page.url:
+        await page.goto("https://x.com/home", timeout=60000)
+        if "login" in page.url or "flow" in page.url:
             logging.info("⚠️ Cookies ungültig, erneut einloggen...")
             await login_and_save_cookies(page, username, password)
 
         for i, thread in enumerate(threads, 1):
             try:
                 logging.info(f"✍️ Starte Thread {i}...")
-                await page.goto("https://twitter.com/compose/tweet", timeout=60000)
+                await page.goto("https://x.com/compose/tweet", timeout=60000)
                 await page.wait_for_selector("div[data-testid='tweetTextarea_0']", timeout=30000)
                 await page.fill("div[data-testid='tweetTextarea_0']", thread[0])
 

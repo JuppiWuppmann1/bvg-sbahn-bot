@@ -1,0 +1,49 @@
+// x_bridge.js
+const puppeteer = require("puppeteer");
+const fs = require("fs");
+
+(async () => {
+  const threads = JSON.parse(process.argv[2]);
+  const cookies = JSON.parse(fs.readFileSync("x_cookies.json", "utf-8"));
+
+  const browser = await puppeteer.launch({ headless: true });
+  const page = await browser.newPage();
+
+  await page.setCookie(...cookies);
+  await page.goto("https://x.com/home", { timeout: 60000 });
+
+  const composeExists = await page.$("a[href='/compose/tweet']");
+  if (!composeExists) {
+    console.error("❌ Session nicht aktiv – kein Compose-Link gefunden.");
+    await page.screenshot({ path: "session_invalid.png" });
+    await browser.close();
+    process.exit(1);
+  }
+
+  for (let i = 0; i < threads.length; i++) {
+    const thread = threads[i];
+    try {
+      console.log(`✍️ Starte Thread ${i + 1}...`);
+      await page.goto("https://x.com/compose/tweet", { timeout: 60000 });
+
+      const field = await page.waitForSelector("div[role='textbox']", { timeout: 10000 });
+      await field.click();
+      await field.type(thread[0]);
+
+      for (let j = 1; j < thread.length; j++) {
+        await page.click("div[data-testid='tweetButtonInline']");
+        const replyField = await page.waitForSelector("div[role='textbox']", { timeout: 10000 });
+        await replyField.click();
+        await replyField.type(thread[j]);
+      }
+
+      await page.click("div[data-testid='tweetButtonInline']");
+      console.log(`✅ Thread ${i + 1} gepostet!`);
+    } catch (err) {
+      console.error(`❌ Fehler beim Thread ${i + 1}:`, err);
+      await page.screenshot({ path: `tweet_error_${i + 1}.png` });
+    }
+  }
+
+  await browser.close();
+})();

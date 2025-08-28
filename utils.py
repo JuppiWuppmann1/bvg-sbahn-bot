@@ -1,4 +1,7 @@
-import os, json, re, logging
+import os
+import json
+import re
+import logging
 from collections import OrderedDict
 from datetime import datetime
 
@@ -6,13 +9,13 @@ SEEN_FILE = "seen.json"
 
 def load_seen():
     if os.path.exists(SEEN_FILE):
-        with open(SEEN_FILE, "r") as f:
+        with open(SEEN_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
 def save_seen(seen):
-    with open(SEEN_FILE, "w") as f:
-        json.dump(seen, f)
+    with open(SEEN_FILE, "w", encoding="utf-8") as f:
+        json.dump(seen, f, ensure_ascii=False, indent=2)
 
 def enrich_message(text: str) -> str:
     mapping = {
@@ -59,10 +62,11 @@ def generate_tweets(meldungen):
     threads = []
     for m in meldungen:
         beschreibung = m.get("beschreibung", "").strip()
-        zeit = extract_zeit(m.get("titel", ""))
+        titel = m.get("titel", "").strip()
+        zeit = extract_zeit(titel)
         extras = enrich_message(beschreibung)
 
-        header = f"{zeit}" if zeit else "🕒 Neue Meldung"
+        header = zeit if zeit else "🕒 Neue Meldung"
         beschreibung_parts = re.split(r'(?<=[.!?])\s+', beschreibung)
         beschreibung_parts = [part.strip() for part in beschreibung_parts if part.strip()]
 

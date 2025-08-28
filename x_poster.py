@@ -10,6 +10,12 @@ async def load_cookies(context):
     if COOKIES_FILE.exists():
         try:
             cookies = json.loads(COOKIES_FILE.read_text())
+
+            # Korrigiere sameSite-Werte
+            for cookie in cookies:
+                if "sameSite" not in cookie or cookie["sameSite"] not in ["Strict", "Lax", "None"]:
+                    cookie["sameSite"] = "Lax"
+
             await context.add_cookies(cookies)
             logging.info("🍪 Cookies geladen und hinzugefügt.")
         except Exception as e:

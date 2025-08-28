@@ -15,19 +15,16 @@ async def scrape_bvg():
         for page_num in range(1, 6):
             if page_num > 1:
                 try:
-                    # Klick auf Seitenzahl
+                    await page.wait_for_selector(f"button:has-text('{page_num}')", timeout=10000)
                     button = page.locator(f"button:has-text('{page_num}')")
+                    await button.scroll_into_view_if_needed()
                     await button.click()
                     logging.info(f"📄 Seite {page_num} geklickt...")
-
-                    # Warte auf neue Inhalte
-                    await page.wait_for_selector("li.DisruptionsOverviewVersionTwo_item__GvWfq", timeout=10000)
-                    await page.wait_for_timeout(2000)
+                    await page.wait_for_timeout(3000)
                 except Exception as e:
                     logging.warning(f"⚠️ Seite {page_num} konnte nicht geladen werden: {e}")
                     continue
 
-            # HTML parsen
             html = await page.content()
             soup = BeautifulSoup(html, "html.parser")
             items = soup.select("li.DisruptionsOverviewVersionTwo_item__GvWfq")

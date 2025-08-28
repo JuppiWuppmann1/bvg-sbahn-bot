@@ -2,7 +2,14 @@ const puppeteer = require("puppeteer");
 const fs = require("fs");
 
 (async () => {
-  const threads = JSON.parse(process.argv[2]);
+  const stdin = await new Promise((resolve) => {
+    let data = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", chunk => data += chunk);
+    process.stdin.on("end", () => resolve(data));
+  });
+
+  const threads = JSON.parse(stdin);
   const cookies = JSON.parse(fs.readFileSync("x_cookies.json", "utf-8"));
 
   const browser = await puppeteer.launch({ headless: true });

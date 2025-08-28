@@ -1,20 +1,20 @@
 const puppeteer = require("puppeteer-core");
 const fs = require("fs");
-const path = require("path");
 
 (async () => {
-  const threads = JSON.parse(await new Promise((resolve) => {
+  const stdin = await new Promise((resolve) => {
     let data = "";
     process.stdin.setEncoding("utf8");
     process.stdin.on("data", chunk => data += chunk);
     process.stdin.on("end", () => resolve(data));
-  }));
+  });
 
+  const threads = JSON.parse(stdin);
   const cookies = JSON.parse(fs.readFileSync("x_cookies.json", "utf-8"));
 
   const browser = await puppeteer.launch({
     headless: true,
-    executablePath: "/usr/bin/google-chrome", // oder "/usr/bin/chromium-browser"
+    executablePath: "/usr/bin/google-chrome", // oder chromium-browser
     args: ["--no-sandbox"]
   });
 

@@ -1,6 +1,5 @@
 from playwright.async_api import async_playwright
 import logging
-import json
 
 async def scrape_bvg():
     url = "https://www.bvg.de/de/verbindungen/stoerungsmeldungen"
@@ -11,7 +10,7 @@ async def scrape_bvg():
         context = await browser.new_context()
         page = await context.new_page()
 
-        # Intercept JSON responses
+        # Sammle JSON-Daten aus allen Seiten
         async def handle_response(response):
             if "stoerungsmeldungen" in response.url and response.headers.get("content-type", "").startswith("application/json"):
                 try:
@@ -31,6 +30,17 @@ async def scrape_bvg():
         logging.info(f"🌐 Lade BVG-Seite: {url}")
         await page.goto(url, timeout=60000)
         await page.wait_for_timeout(5000)
+
+        # Klicke durch Seiten 2–5
+        for page_num in range(2, 6):
+            try:
+                await page.evaluate(f"""
+                    [...document.querySelectorAll('button')].find(b => b.textContent.trim() === '{page_num}')?.click()
+                """)
+                logging.info(f"📄 Seite {page_num} geladen...")
+                await page.wait_for_timeout(3000)
+            except Exception as e:
+                logging.warning(f"⚠️ Seite {page_num} konnte nicht geladen werden: {e}")
 
         await browser.close()
 

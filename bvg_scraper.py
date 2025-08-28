@@ -25,22 +25,28 @@ async def scrape_bvg():
             if page_num > 1:
                 try:
                     await page.wait_for_timeout(2000)
-                    locator = page.locator(f"text='{page_num}'")
-                    count = await locator.count()
                     found = False
 
-                    for i in range(count):
-                        el = locator.nth(i)
-                        if await el.is_visible():
-                            await el.scroll_into_view_if_needed()
-                            await el.click()
-                            logging.info(f"📄 Seite {page_num} geklickt...")
-                            await page.wait_for_timeout(3000)
-                            found = True
-                            break
+                    # Suche gezielt nach Paginierungselementen
+                    pagination = await page.query_selector("nav[aria-label='Pagination']")
+                    if pagination:
+                        buttons = await pagination.query_selector_all("button, a")
+                        for b in buttons:
+                            try:
+                                text = await b.inner_text()
+                                if text.strip() == str(page_num):
+                                    await b.scroll_into_view_if_needed()
+                                    await b.click()
+                                    logging.info(f"📄 Seite {page_num} geklickt...")
+                                    await page.wait_for_timeout(3000)
+                                    found = True
+                                    break
+                            except Exception as inner:
+                                logging.debug(f"🔍 Button-Fehler: {inner}")
+                                continue
 
                     if not found:
-                        logging.info(f"⏭️ Seite {page_num} nicht verfügbar – Text-Button nicht klickbar.")
+                        logging.info(f"⏭️ Seite {page_num} nicht verfügbar – Paginierungs-Button nicht klickbar.")
                         await page.screenshot(path=f"page_{page_num}_missing_button.png")
                         continue
 

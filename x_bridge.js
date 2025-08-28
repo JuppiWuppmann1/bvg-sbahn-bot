@@ -1,5 +1,9 @@
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-core");
 const fs = require("fs");
+
+const chromePaths = ["/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome"];
+const chromePath = chromePaths.find(p => fs.existsSync(p));
+if (!chromePath) throw new Error("❌ Kein Chromium gefunden");
 
 (async () => {
   const stdin = await new Promise((resolve) => {
@@ -13,10 +17,10 @@ const fs = require("fs");
   const cookies = JSON.parse(fs.readFileSync("x_cookies.json", "utf-8"));
 
   const browser = await puppeteer.launch({
-  headless: "new",
-  args: ["--no-sandbox"]
-});
-
+    headless: "new",
+    executablePath: chromePath,
+    args: ["--no-sandbox"]
+  });
 
   const page = await browser.newPage();
   await page.setCookie(...cookies);

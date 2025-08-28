@@ -18,19 +18,25 @@ async def scrape_bvg():
 
     meldungen = []
     for item in items:
-        titel = item.select_one("h4")
-        beschreibung = item.select_one(".NotificationItemVersionTwo_content__kw1Ui")
-        linie = item.select_one("._BdsSignetLine_8xinl_2")
+        beschreibung = item.select_one(".NotificationItemVersionTwo_content__kw1Ui p")
+        linien = item.select(".NotificationItemVersionTwo_signetContainer__zqGlg ._BdsSignetLine_8xinl_2")
         von_bis = item.select_one(".LineStopsRange_LineStopsRange__I3I_1")
+        datum = item.select_one("time")
+
+        linien_text = ", ".join([l.get_text(strip=True) for l in linien]) if linien else ""
         von_bis_text = von_bis.get_text(" ", strip=True) if von_bis else ""
+        beschreibung_text = beschreibung.get_text(" ", strip=True) if beschreibung else ""
+        datum_text = datum.get("datetime") if datum else ""
 
         meldungen.append({
             "quelle": "BVG",
-            "titel": titel.get_text(strip=True) if titel else "Unbekannt",
-            "beschreibung": beschreibung.get_text(" ", strip=True) if beschreibung else "",
-            "linie": linie.get_text(strip=True) if linie else "",
+            "titel": f"Störung auf {linien_text}" if linien_text else "Unbekannte Linie",
+            "beschreibung": beschreibung_text,
+            "linie": linien_text,
             "strecke": von_bis_text,
+            "zeit": datum_text
         })
+
 
     logging.info(f"✅ BVG-Scraper hat {len(meldungen)} Meldungen extrahiert.")
     return meldungen

@@ -6,73 +6,17 @@ from playwright.async_api import async_playwright
 
 COOKIES_FILE = Path("x_cookies.json")
 
-async def login_and_save_cookies(page, username, password, max_retries=3):
-    for attempt in range(1, max_retries + 1):
-        try:
-            logging.info(f"🔐 Login-Versuch {attempt} bei X...")
-            await page.goto("https://x.com/i/flow/login", timeout=60000)
-
-            # Schritt 1: Benutzername eingeben
-            await page.wait_for_selector("input", timeout=30000)
-            await page.fill("input", username)
-            await page.keyboard.press("Enter")
-            await page.wait_for_timeout(3000)
-
-            # Schritt 2: Passwortfeld erscheint
-            await page.wait_for_selector("input[type='password']", timeout=30000)
-            await page.fill("input[type='password']", password)
-            await page.keyboard.press("Enter")
-            await page.wait_for_timeout(5000)
-
-            # Schritt 3: Weiterleitung prüfen
-            await page.goto("https://x.com/home", timeout=60000)
-            await page.wait_for_timeout(8000)
-            current_url = page.url
-            logging.info(f"🔍 Aktuelle URL nach Login: {current_url}")
-
-            if any(keyword in current_url for keyword in ["login", "flow", "redirect_after_login"]):
-                raise Exception("Noch im Login-Flow – Login fehlgeschlagen")
-
-            # Schritt 4: Tweet-Feld oder Compose-Link prüfen
-            tweet_field = await page.query_selector("div[data-testid='tweetTextarea_0']")
-            compose_link = await page.query_selector("a[href='/compose/tweet']")
-            compose_button = await page.query_selector("div[aria-label='Tweet verfassen']")
-
-            if tweet_field or compose_link or compose_button:
-                logging.info("✅ Login erfolgreich, speichere Cookies...")
-                cookies = await page.context.cookies()
-                COOKIES_FILE.write_text(json.dumps(cookies))
-                return
-            else:
-                logging.warning("⚠️ Tweet-Feld nicht gefunden – versuche direkten Zugriff...")
-                await page.goto("https://x.com/compose/tweet", timeout=60000)
-                try:
-                    await page.wait_for_selector("div[data-testid='tweetTextarea_0']", timeout=10000)
-                    logging.info("✅ Tweet-Feld über Compose-Seite gefunden – Login abgeschlossen.")
-                    cookies = await page.context.cookies()
-                    COOKIES_FILE.write_text(json.dumps(cookies))
-                    return
-                except Exception:
-                    raise Exception("Tweet-Feld auch über Compose-Seite nicht erreichbar.")
-
-        except Exception as e:
-            logging.error(f"❌ Login-Versuch {attempt} fehlgeschlagen: {e}")
-            await page.screenshot(path=f"login_failed_{attempt}.png")
-            html = await page.content()
-            Path(f"login_failed_{attempt}.html").write_text(html, encoding="utf-8")
-
-    raise Exception("❌ Alle Login-Versuche fehlgeschlagen")
-
-async def load_cookies_if_exist(context):
+async def load_cookies(context):
     if COOKIES_FILE.exists():
         try:
             cookies = json.loads(COOKIES_FILE.read_text())
             await context.add_cookies(cookies)
-            logging.info("🍪 Cookies geladen, versuche Session wiederzuverwenden...")
-            return True
+            logging.info("🍪 Cookies geladen und hinzugefügt.")
         except Exception as e:
-            logging.warning(f"⚠️ Konnte Cookies nicht laden: {e}")
-    return False
+            logging.error(f"❌ Fehler beim Laden der Cookies: {e}")
+            raise
+    else:
+        raise Exception("❌ Cookie-Datei x_cookies.json nicht gefunden.")
 
 async def post_threads(threads):
     async with async_playwright() as p:
@@ -81,17 +25,18 @@ async def post_threads(threads):
         page = await context.new_page()
         page.set_default_timeout(60000)
 
-        from os import getenv
-        username = getenv("TWITTER_USER")
-        password = getenv("TWITTER_PASS")
-
-        if not await load_cookies_if_exist(context):
-            await login_and_save_cookies(page, username, password)
+        try:
+            await load_cookies(context)
+        except Exception as e:
+            logging.error(f"❌ Abbruch: Cookies konnten nicht geladen werden: {e}")
+            await browser.close()
+            return
 
         await page.goto("https://x.com/home", timeout=60000)
         if any(keyword in page.url for keyword in ["login", "flow", "redirect_after_login"]):
-            logging.info("⚠️ Cookies ungültig, erneut einloggen...")
-            await login_and_save_cookies(page, username, password)
+            logging.error("❌ Cookies ungültig – bitte manuell erneuern.")
+            await browser.close()
+            return
 
         for i, thread in enumerate(threads, 1):
             try:
@@ -122,4 +67,3 @@ async def post_threads(threads):
                 logging.error(f"❌ Fehler beim Tweeten: {e}")
 
         await browser.close()
-

@@ -15,8 +15,11 @@ async def scrape_bvg():
         for page_num in range(1, 6):
             if page_num > 1:
                 try:
-                    await page.wait_for_selector(f"button:has-text('{page_num}')", timeout=10000)
                     button = page.locator(f"button:has-text('{page_num}')")
+                    if await button.count() == 0:
+                        logging.info(f"⏭️ Seite {page_num} nicht verfügbar – Button fehlt.")
+                        continue
+
                     await button.scroll_into_view_if_needed()
                     await button.click()
                     logging.info(f"📄 Seite {page_num} geklickt...")
@@ -45,3 +48,4 @@ async def scrape_bvg():
 
     logging.info(f"✅ BVG-Scraper hat insgesamt {len(meldungen)} Meldungen extrahiert.")
     return meldungen
+

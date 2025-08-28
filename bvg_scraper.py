@@ -1,6 +1,10 @@
+import asyncio
 from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
+from pathlib import Path
 import logging
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 async def scrape_bvg():
     url = "https://www.bvg.de/de/verbindungen/stoerungsmeldungen"
@@ -27,7 +31,6 @@ async def scrape_bvg():
                     await page.wait_for_timeout(2000)
                     found = False
 
-                    # Suche gezielt nach Paginierungselementen
                     pagination = await page.query_selector("nav[aria-label='Pagination']")
                     if pagination:
                         buttons = await pagination.query_selector_all("button, a")
@@ -59,6 +62,32 @@ async def scrape_bvg():
                 soup = BeautifulSoup(html, "html.parser")
                 items = soup.select("li.DisruptionsOverviewVersionTwo_item__GvWfq")
 
+                if page_num == 1:
+                    # Debug-Ausgabe für Seite 1
+                    Path("bvg_debug.html").write_text(html, encoding="utf-8")
+                    await page.screenshot(path="bvg_debug_screenshot.png")
+                    logging.info("📸 Screenshot und HTML von Seite 1 gespeichert.")
+
+                    pagination = await page.query_selector("nav[aria-label='Pagination']")
+                    if pagination:
+                        buttons = await pagination.query_selector_all("button, a")
+                        for i, b in enumerate(buttons):
+                            try:
+                                text = await b.inner_text()
+                                logging.info(f"🔘 Button {i+1}: '{text.strip()}'")
+                            except Exception as e:
+                                logging.warning(f"⚠️ Fehler beim Lesen von Button {i+1}: {e}")
+                    else:
+                        logging.warning("⚠️ Keine Paginierung gefunden.")
+
+                    logging.info(f"📦 Gefundene Meldungen: {len(items)}")
+                    for i, item in enumerate(items[:5], 1):
+                        beschreibung = item.select_one(".NotificationItemVersionTwo_content__kw1Ui p")
+                        datum = item.select_one("time")
+                        logging.info(f"📝 Meldung {i}:")
+                        logging.info(f"    Zeit: {datum.get('datetime') if datum else '–'}")
+                        logging.info(f"    Text: {beschreibung.get_text(strip=True) if beschreibung else '–'}")
+
                 for item in items:
                     beschreibung = item.select_one(".NotificationItemVersionTwo_content__kw1Ui p")
                     datum = item.select_one("time")
@@ -85,3 +114,6 @@ async def scrape_bvg():
 
     logging.info(f"✅ BVG-Scraper hat insgesamt {len(meldungen)} Meldungen extrahiert.")
     return meldungen
+
+if __name__ == "__main__":
+    asyncio.run(scrape_bvg())

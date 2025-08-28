@@ -24,7 +24,7 @@ async def login_and_save_cookies(page, username, password, max_retries=3):
             await page.keyboard.press("Enter")
             await page.wait_for_timeout(5000)
 
-            # Schritt 3: Prüfen ob eingeloggt
+            # Schritt 3: Weiterleitung prüfen
             await page.goto("https://x.com/home", timeout=60000)
             current_url = page.url
             logging.info(f"🔍 Aktuelle URL nach Login: {current_url}")
@@ -32,8 +32,11 @@ async def login_and_save_cookies(page, username, password, max_retries=3):
             if "login" in current_url or "flow" in current_url:
                 raise Exception("Noch im Login-Flow – Login fehlgeschlagen")
 
-            # Prüfe auf Tweet-Feld oder Compose-Button
-            if await page.query_selector("a[href='/compose/tweet']") or await page.query_selector("div[data-testid='tweetTextarea_0']"):
+            # Schritt 4: Tweet-Feld oder Compose-Link prüfen
+            tweet_field = await page.query_selector("div[data-testid='tweetTextarea_0']")
+            compose_link = await page.query_selector("a[href='/compose/tweet']")
+
+            if tweet_field or compose_link:
                 logging.info("✅ Login erfolgreich, speichere Cookies...")
                 cookies = await page.context.cookies()
                 COOKIES_FILE.write_text(json.dumps(cookies))
@@ -83,7 +86,14 @@ async def post_threads(threads):
             try:
                 logging.info(f"✍️ Starte Thread {i}...")
                 await page.goto("https://x.com/compose/tweet", timeout=60000)
-                await page.wait_for_selector("div[data-testid='tweetTextarea_0']", timeout=30000)
+
+                # Fallback: Falls Tweet-Feld nicht direkt sichtbar ist
+                tweet_field = await page.query_selector("div[data-testid='tweetTextarea_0']")
+                if not tweet_field:
+                    logging.info("🕵️ Tweet-Feld nicht sichtbar – versuche über Compose-Link...")
+                    await page.goto("https://x.com/compose/tweet", timeout=60000)
+                    await page.wait_for_selector("div[data-testid='tweetTextarea_0']", timeout=30000)
+
                 await page.fill("div[data-testid='tweetTextarea_0']", thread[0])
 
                 for reply in thread[1:]:
@@ -94,6 +104,7 @@ async def post_threads(threads):
                 await page.click("div[data-testid='tweetButtonInline']")
                 logging.info(f"✅ Thread {i} gepostet!")
                 await asyncio.sleep(5)
+
             except Exception as e:
                 html = await page.content()
                 Path(f"tweet_error_{i}.html").write_text(html, encoding="utf-8")

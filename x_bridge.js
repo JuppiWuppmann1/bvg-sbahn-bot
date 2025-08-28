@@ -14,7 +14,6 @@ const fs = require("fs");
 
   const browser = await puppeteer.launch({
   headless: "new",
-  executablePath: "/usr/bin/chromium-browser",
   args: ["--no-sandbox"]
 });
 

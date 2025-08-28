@@ -15,19 +15,22 @@ async def scrape_bvg():
         for page_num in range(1, 6):
             if page_num > 1:
                 try:
-                    # Suche alle Buttons mit Seitenzahlen
-                    buttons = await page.locator("button").all()
+                    await page.wait_for_timeout(2000)
+                    elements = await page.locator("button, a").all()
                     found = False
 
-                    for b in buttons:
-                        text = await b.inner_text()
-                        if text.strip() == str(page_num):
-                            await b.scroll_into_view_if_needed()
-                            await b.click()
-                            logging.info(f"📄 Seite {page_num} geklickt...")
-                            await page.wait_for_timeout(3000)
-                            found = True
-                            break
+                    for el in elements:
+                        try:
+                            text = await el.inner_text()
+                            if text.strip() == str(page_num):
+                                await el.scroll_into_view_if_needed()
+                                await el.click()
+                                logging.info(f"📄 Seite {page_num} geklickt...")
+                                await page.wait_for_timeout(3000)
+                                found = True
+                                break
+                        except:
+                            continue
 
                     if not found:
                         logging.info(f"⏭️ Seite {page_num} nicht verfügbar – Button nicht gefunden.")
@@ -37,7 +40,6 @@ async def scrape_bvg():
                     logging.warning(f"⚠️ Seite {page_num} konnte nicht geladen werden: {e}")
                     continue
 
-            # HTML parsen – außerhalb des try/except!
             html = await page.content()
             soup = BeautifulSoup(html, "html.parser")
             items = soup.select("li.DisruptionsOverviewVersionTwo_item__GvWfq")

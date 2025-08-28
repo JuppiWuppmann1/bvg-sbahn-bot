@@ -10,12 +10,9 @@ async def load_cookies(context):
     if COOKIES_FILE.exists():
         try:
             cookies = json.loads(COOKIES_FILE.read_text())
-
-            # Korrigiere sameSite-Werte
             for cookie in cookies:
                 if "sameSite" not in cookie or cookie["sameSite"] not in ["Strict", "Lax", "None"]:
                     cookie["sameSite"] = "Lax"
-
             await context.add_cookies(cookies)
             logging.info("🍪 Cookies geladen und hinzugefügt.")
         except Exception as e:
@@ -49,11 +46,12 @@ async def post_threads(threads):
                 logging.info(f"✍️ Starte Thread {i}...")
                 await page.goto("https://x.com/compose/tweet", timeout=60000)
 
-                tweet_field = await page.query_selector("div[data-testid='tweetTextarea_0']")
-                if not tweet_field:
-                    logging.info("🕵️ Tweet-Feld nicht sichtbar – versuche erneut...")
-                    await page.goto("https://x.com/compose/tweet", timeout=60000)
+                try:
                     await page.wait_for_selector("div[data-testid='tweetTextarea_0']", timeout=30000)
+                except Exception:
+                    logging.warning("⚠️ Tweet-Feld nicht sichtbar – Screenshot zur Analyse...")
+                    await page.screenshot(path=f"tweet_field_missing_{i}.png")
+                    continue
 
                 await page.fill("div[data-testid='tweetTextarea_0']", thread[0])
 

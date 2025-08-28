@@ -1,7 +1,7 @@
 {
   "name": "x-poster",
   "version": "1.0.0",
-  "description": "Node.js bridge for posting threads to X via Puppeteer",
+  "description": "Bridge für X-Posting via Puppeteer",
   "main": "x_bridge.js",
   "scripts": {
     "start": "node x_bridge.js"

@@ -11,7 +11,7 @@ async def load_cookies(context):
         try:
             cookies = json.loads(COOKIES_FILE.read_text())
             for cookie in cookies:
-                if "sameSite" not in cookie or cookie["sameSite"] not in ["Strict", "Lax", "None"]:
+                if "sameSite" not in cookie or cookie["sameSite"].lower() not in ["strict", "lax", "none"]:
                     cookie["sameSite"] = "Lax"
             await context.add_cookies(cookies)
             logging.info("🍪 Cookies geladen und hinzugefügt.")
@@ -24,7 +24,13 @@ async def load_cookies(context):
 async def post_threads(threads):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True, args=["--no-sandbox"])
-        context = await browser.new_context()
+        context = await browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/115.0.0.0 Safari/537.36",
+            locale="de-DE",
+            viewport={"width": 1280, "height": 800},
+            device_scale_factor=1,
+            timezone_id="Europe/Berlin"
+        )
         page = await context.new_page()
         page.set_default_timeout(60000)
 

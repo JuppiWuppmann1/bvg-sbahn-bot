@@ -46,10 +46,16 @@ async def post_threads(threads):
                 logging.info(f"✍️ Starte Thread {i}...")
                 await page.goto("https://x.com/compose/tweet", timeout=60000)
 
-                try:
-                    await page.wait_for_selector("div[data-testid='tweetTextarea_0']", timeout=30000)
-                except Exception:
-                    logging.warning("⚠️ Tweet-Feld nicht sichtbar – Screenshot zur Analyse...")
+                # Wiederholte Prüfung auf Tweet-Feld
+                for attempt in range(3):
+                    try:
+                        await page.wait_for_selector("div[data-testid='tweetTextarea_0']", timeout=10000)
+                        break
+                    except Exception:
+                        logging.warning(f"⚠️ Versuch {attempt+1}: Tweet-Feld nicht sichtbar...")
+                        await asyncio.sleep(2)
+                else:
+                    logging.warning("⚠️ Tweet-Feld nicht gefunden – Screenshot zur Analyse...")
                     await page.screenshot(path=f"tweet_field_missing_{i}.png")
                     continue
 

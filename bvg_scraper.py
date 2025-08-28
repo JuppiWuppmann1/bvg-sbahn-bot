@@ -15,13 +15,15 @@ async def scrape_bvg():
         for page_num in range(1, 6):  # Seiten 1 bis 5
             logging.info(f"📄 Lade Seite {page_num}...")
 
-            # Klicke auf die entsprechende Seitenzahl
+            # Klicke per JavaScript auf die Seitenzahl
             if page_num > 1:
                 try:
-                    await page.click(f"text=\"{page_num}\"", timeout=5000)
+                    await page.evaluate(f"""
+                        [...document.querySelectorAll('button')].find(b => b.textContent.trim() === '{page_num}')?.click()
+                    """)
                     await page.wait_for_timeout(3000)
                 except Exception as e:
-                    logging.warning(f"⚠️ Seite {page_num} konnte nicht geladen werden: {e}")
+                    logging.warning(f"⚠️ Seite {page_num} konnte nicht per JS geklickt werden: {e}")
                     continue
 
             html = await page.content()
@@ -49,7 +51,14 @@ async def scrape_bvg():
                     "zeit": datum_text
                 }
 
-                logging.info(f"📝 BVG-Meldung:\nTitel: {meldung['titel']}\nLinie: {meldung['linie']}\nStrecke: {meldung['strecke']}\nZeit: {meldung['zeit']}\nBeschreibung: {meldung['beschreibung']}\n{'-'*80}")
+                logging.info(
+                    f"📝 BVG-Meldung:\n"
+                    f"Titel: {meldung['titel']}\n"
+                    f"Linie: {meldung['linie']}\n"
+                    f"Strecke: {meldung['strecke']}\n"
+                    f"Zeit: {meldung['zeit']}\n"
+                    f"Beschreibung: {meldung['beschreibung']}\n{'-'*80}"
+                )
                 meldungen.append(meldung)
 
         await browser.close()

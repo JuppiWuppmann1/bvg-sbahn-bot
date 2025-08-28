@@ -43,7 +43,7 @@ async def job():
     if neue:
         logging.info(f"✅ {len(neue)} neue Meldungen gefunden!")
         threads = generate_tweets(neue)
-        await post_threads(threads)
+        post_threads(threads)
         save_seen(seen)
     else:
         logging.info("ℹ️ Keine neuen Meldungen.")

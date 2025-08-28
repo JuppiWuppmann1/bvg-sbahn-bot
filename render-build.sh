@@ -4,8 +4,5 @@ set -o errexit
 echo "🚀 Installiere Python-Pakete..."
 pip install -r requirements.txt
 
-echo "🔧 Node-Dependencies installieren..."
+echo "🔧 Installiere Node-Abhängigkeiten..."
 npm install
-
-echo "🚀 Installiere Playwright Browser..."
-python -m playwright install chromium

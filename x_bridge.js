@@ -13,9 +13,10 @@ const fs = require("fs");
   const cookies = JSON.parse(fs.readFileSync("x_cookies.json", "utf-8"));
 
   const browser = await puppeteer.launch({
-    headless: "new", // vermeidet die Deprecation-Warnung
-    args: ["--no-sandbox"]
-  });
+  headless: true,
+  executablePath: "/usr/bin/chromium-browser",
+  args: ["--no-sandbox"]
+});
 
 
   const page = await browser.newPage();

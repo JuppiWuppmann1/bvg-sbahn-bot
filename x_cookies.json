@@ -6,7 +6,7 @@
     "httpOnly": true,
     "name": "__cf_bm",
     "path": "/",
-    "sameSite": "no_restriction",
+    "sameSite": "lax",
     "secure": true,
     "session": false,
     "storeId": "0",
@@ -15,7 +15,7 @@
 },
 {
     "domain": ".x.com",
-    "expirationDate": 1790942682,
+    "expirationDate": 1790943244,
     "hostOnly": false,
     "httpOnly": false,
     "name": "__cuid",
@@ -29,21 +29,35 @@
 },
 {
     "domain": ".x.com",
-    "expirationDate": 1790597081.860563,
+    "expirationDate": 1756469644.075047,
     "hostOnly": false,
     "httpOnly": true,
-    "name": "auth_token",
+    "name": "att",
     "path": "/",
-    "sameSite": "no_restriction",
+    "sameSite": "lax",
     "secure": true,
     "session": false,
     "storeId": "0",
-    "value": "1411ead5a591e169cd9a901ced6f44e8e55dc02b",
+    "value": "1-ns3OuJCF3KTY7wLTunApcKxTgM8p7fncvVxsDm1Q",
     "id": 3
 },
 {
     "domain": ".x.com",
-    "expirationDate": 1790597082.187672,
+    "expirationDate": 1790597643.587299,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "auth_token",
+    "path": "/",
+    "sameSite": "lax",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "1ab588b03660565853c297b0e5aaf298891f3b43",
+    "id": 4
+},
+{
+    "domain": ".x.com",
+    "expirationDate": 1790597643.842123,
     "hostOnly": false,
     "httpOnly": false,
     "name": "ct0",
@@ -52,8 +66,8 @@
     "secure": true,
     "session": false,
     "storeId": "0",
-    "value": "4713808899b48013140097b45007fad24e621f3d8a387f48ac447c8bdd534e73d72c05d11915eb8ea2014e5958c647e82415bdbe9722ba18761799f24b30eeff06686b1d397d06e5949bc04b142bf46d",
-    "id": 4
+    "value": "dfc4c23193d1e56f9a13d6921bf105caa951bfe9db04623a5a5abc6af18eeaa4a6e8a36a2b1fcca63d7131c4f8bc8ad910867654b033b5fc8882076793e688c89554405071590d9e6ae7b69960c65bca",
+    "id": 5
 },
 {
     "domain": ".x.com",
@@ -62,26 +76,26 @@
     "httpOnly": false,
     "name": "d_prefs",
     "path": "/",
-    "sameSite": "unspecified",
+    "sameSite": "lax",
     "secure": true,
     "session": false,
     "storeId": "0",
     "value": "MToxLGNvbnNlbnRfdmVyc2lvbjoyLHRleHRfdmVyc2lvbjoxMDAw",
-    "id": 5
+    "id": 6
 },
 {
     "domain": ".x.com",
-    "expirationDate": 1790594730.093939,
+    "expirationDate": 1790597363.366365,
     "hostOnly": false,
     "httpOnly": false,
     "name": "dnt",
     "path": "/",
-    "sameSite": "no_restriction",
+    "sameSite": "lax",
     "secure": true,
     "session": false,
     "storeId": "0",
     "value": "1",
-    "id": 6
+    "id": 7
 },
 {
     "domain": ".x.com",
@@ -90,26 +104,26 @@
     "httpOnly": false,
     "name": "gt",
     "path": "/",
-    "sameSite": "unspecified",
+    "sameSite": "lax",
     "secure": true,
     "session": false,
     "storeId": "0",
     "value": "1961037138008441170",
-    "id": 7
+    "id": 8
 },
 {
     "domain": ".x.com",
-    "expirationDate": 1790594730.665095,
+    "expirationDate": 1790597363.55996,
     "hostOnly": false,
     "httpOnly": false,
     "name": "guest_id",
     "path": "/",
-    "sameSite": "no_restriction",
+    "sameSite": "lax",
     "secure": true,
     "session": false,
     "storeId": "0",
-    "value": "v1%3A175638032974162382",
-    "id": 8
+    "value": "v1%3A175638296301819360",
+    "id": 9
 },
 {
     "domain": ".x.com",
@@ -118,21 +132,7 @@
     "httpOnly": false,
     "name": "guest_id_ads",
     "path": "/",
-    "sameSite": "no_restriction",
-    "secure": true,
-    "session": false,
-    "storeId": "0",
-    "value": "v1%3A175510586045953333",
-    "id": 9
-},
-{
-    "domain": ".x.com",
-    "expirationDate": 1789320297,
-    "hostOnly": false,
-    "httpOnly": false,
-    "name": "guest_id_marketing",
-    "path": "/",
-    "sameSite": "no_restriction",
+    "sameSite": "lax",
     "secure": true,
     "session": false,
     "storeId": "0",
@@ -141,17 +141,31 @@
 },
 {
     "domain": ".x.com",
-    "expirationDate": 1790597081.860301,
+    "expirationDate": 1789320297,
+    "hostOnly": false,
+    "httpOnly": false,
+    "name": "guest_id_marketing",
+    "path": "/",
+    "sameSite": "lax",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "v1%3A175510586045953333",
+    "id": 11
+},
+{
+    "domain": ".x.com",
+    "expirationDate": 1790597643.587094,
     "hostOnly": false,
     "httpOnly": true,
     "name": "kdt",
     "path": "/",
-    "sameSite": "unspecified",
+    "sameSite": "lax",
     "secure": true,
     "session": false,
     "storeId": "0",
     "value": "pgX4Q5SQSrswmfUHKSKWfrgDD4qWLKBDGlCzKhSX",
-    "id": 11
+    "id": 12
 },
 {
     "domain": ".x.com",
@@ -160,12 +174,12 @@
     "httpOnly": false,
     "name": "personalization_id",
     "path": "/",
-    "sameSite": "no_restriction",
+    "sameSite": "lax",
     "secure": true,
     "session": false,
     "storeId": "0",
     "value": "\"v1_+E3w0FDY8iftDppWwjcErA==\"",
-    "id": 12
+    "id": 13
 },
 {
     "domain": ".x.com",
@@ -179,21 +193,21 @@
     "session": false,
     "storeId": "0",
     "value": "%7B%22distinct_id%22%3A%2201960623-a248-7097-9eab-8c2a455db78b%22%2C%22%24sesid%22%3A%5B1755714351312%2C%220198c8ba-f0ac-7ebd-9e9f-1c54ffd77440%22%2C1755714351276%5D%7D",
-    "id": 13
+    "id": 14
 },
 {
     "domain": ".x.com",
-    "expirationDate": 1787918693.480821,
+    "expirationDate": 1787919245.052645,
     "hostOnly": false,
     "httpOnly": false,
     "name": "twid",
     "path": "/",
-    "sameSite": "no_restriction",
+    "sameSite": "lax",
     "secure": true,
     "session": false,
     "storeId": "0",
     "value": "u%3D1959555942212673536",
-    "id": 14
+    "id": 15
 },
 {
     "domain": "x.com",
@@ -201,11 +215,11 @@
     "httpOnly": false,
     "name": "lang",
     "path": "/",
-    "sameSite": "unspecified",
+    "sameSite": "lax",
     "secure": false,
     "session": true,
     "storeId": "0",
     "value": "en",
-    "id": 15
+    "id": 16
 }
 ]

@@ -31,17 +31,13 @@ async def scrape_bvg():
 
                     for i in range(count):
                         el = locator.nth(i)
-                        try:
-                            if await el.is_visible():
-                                await el.scroll_into_view_if_needed()
-                                await el.click()
-                                logging.info(f"📄 Seite {page_num} geklickt...")
-                                await page.wait_for_timeout(3000)
-                                found = True
-                                break
-                        except Exception as inner:
-                            logging.debug(f"🔍 Button-Text-Klick Fehler: {inner}")
-                            continue
+                        if await el.is_visible():
+                            await el.scroll_into_view_if_needed()
+                            await el.click()
+                            logging.info(f"📄 Seite {page_num} geklickt...")
+                            await page.wait_for_timeout(3000)
+                            found = True
+                            break
 
                     if not found:
                         logging.info(f"⏭️ Seite {page_num} nicht verfügbar – Text-Button nicht klickbar.")
@@ -60,13 +56,20 @@ async def scrape_bvg():
                 for item in items:
                     beschreibung = item.select_one(".NotificationItemVersionTwo_content__kw1Ui p")
                     datum = item.select_one("time")
+                    linien = [a.get_text(strip=True) for a in item.select("a._BdsSignetLine_8xinl_2")]
+                    haltestelle = item.select_one(".NotificationItemVersionTwo_lineStopsRange__SdZDd")
+                    typ = item.select_one(".NotificationItemVersionTwo_tagsItem__GBFLi strong")
 
                     if beschreibung and datum:
                         meldung = {
                             "zeit": datum.get("datetime"),
-                            "beschreibung": beschreibung.get_text(" ", strip=True)
+                            "beschreibung": beschreibung.get_text(" ", strip=True),
+                            "linien": ", ".join(linien),
+                            "haltestelle": haltestelle.get_text(strip=True) if haltestelle else None,
+                            "typ": typ.get_text(strip=True) if typ else None,
+                            "quelle": "BVG"
                         }
-                        logging.info(f"🕒 {meldung['zeit']}\n📝 {meldung['beschreibung']}\n{'-'*60}")
+                        logging.info(f"🕒 {meldung['zeit']}\n📝 {meldung['beschreibung']}\n🚏 {meldung['haltestelle']}\n🚍 {meldung['linien']}\n🏷️ {meldung['typ']}\n{'-'*60}")
                         meldungen.append(meldung)
 
             except Exception as e:

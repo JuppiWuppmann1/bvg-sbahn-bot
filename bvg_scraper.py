@@ -25,15 +25,14 @@ async def scrape_bvg():
             if page_num > 1:
                 try:
                     await page.wait_for_timeout(2000)
-                    elements = await page.locator("button, a").all()
+                    locator = page.locator(f"text='{page_num}'")
+                    count = await locator.count()
                     found = False
 
-                    for el in elements:
+                    for i in range(count):
+                        el = locator.nth(i)
                         try:
-                            if not await el.is_visible():
-                                continue
-                            text = await el.inner_text()
-                            if text.strip() == str(page_num):
+                            if await el.is_visible():
                                 await el.scroll_into_view_if_needed()
                                 await el.click()
                                 logging.info(f"📄 Seite {page_num} geklickt...")
@@ -41,11 +40,12 @@ async def scrape_bvg():
                                 found = True
                                 break
                         except Exception as inner:
-                            logging.debug(f"🔍 Button-Check Fehler: {inner}")
+                            logging.debug(f"🔍 Button-Text-Klick Fehler: {inner}")
                             continue
 
                     if not found:
-                        logging.info(f"⏭️ Seite {page_num} nicht verfügbar – Button nicht gefunden.")
+                        logging.info(f"⏭️ Seite {page_num} nicht verfügbar – Text-Button nicht klickbar.")
+                        await page.screenshot(path=f"page_{page_num}_missing_button.png")
                         continue
 
                 except Exception as e:

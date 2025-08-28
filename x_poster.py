@@ -30,7 +30,7 @@ async def login_and_save_cookies(page, username, password, max_retries=3):
             current_url = page.url
             logging.info(f"🔍 Aktuelle URL nach Login: {current_url}")
 
-            if "login" in current_url or "flow" in current_url:
+            if any(keyword in current_url for keyword in ["login", "flow", "redirect_after_login"]):
                 raise Exception("Noch im Login-Flow – Login fehlgeschlagen")
 
             # Schritt 4: Tweet-Feld oder Compose-Link prüfen
@@ -89,7 +89,7 @@ async def post_threads(threads):
             await login_and_save_cookies(page, username, password)
 
         await page.goto("https://x.com/home", timeout=60000)
-        if "login" in page.url or "flow" in page.url:
+        if any(keyword in page.url for keyword in ["login", "flow", "redirect_after_login"]):
             logging.info("⚠️ Cookies ungültig, erneut einloggen...")
             await login_and_save_cookies(page, username, password)
 
@@ -122,3 +122,4 @@ async def post_threads(threads):
                 logging.error(f"❌ Fehler beim Tweeten: {e}")
 
         await browser.close()
+

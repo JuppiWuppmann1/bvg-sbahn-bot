@@ -1,9 +1,5 @@
-const puppeteer = require("puppeteer-core");
+const puppeteer = require("puppeteer");
 const fs = require("fs");
-
-const chromePaths = ["/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome"];
-const chromePath = chromePaths.find(p => fs.existsSync(p));
-if (!chromePath) throw new Error("❌ Kein Chromium gefunden");
 
 (async () => {
   const stdin = await new Promise((resolve) => {
@@ -18,14 +14,13 @@ if (!chromePath) throw new Error("❌ Kein Chromium gefunden");
 
   const browser = await puppeteer.launch({
     headless: "new",
-    executablePath: chromePath,
     args: ["--no-sandbox"]
   });
 
   const page = await browser.newPage();
   await page.setCookie(...cookies);
   await page.goto("https://x.com/home", { timeout: 60000 });
-
+  
   const composeExists = await page.$("a[href='/compose/tweet']");
   if (!composeExists) {
     console.error("❌ Session nicht aktiv – kein Compose-Link gefunden.");

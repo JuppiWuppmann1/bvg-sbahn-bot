@@ -3,9 +3,7 @@ services:
     name: bvg-sbahn-bot
     env: python
     plan: free
-    buildCommand: |
-      ./render-build.sh
-      npm install
+    buildCommand: ./render-build.sh
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: TWITTER_USER

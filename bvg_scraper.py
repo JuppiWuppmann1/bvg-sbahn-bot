@@ -18,8 +18,9 @@ async def scrape_bvg():
                     await page.evaluate(f"""
                         [...document.querySelectorAll('button')].find(b => b.textContent.trim() === '{page_num}')?.click()
                     """)
-                    logging.info(f"📄 Seite {page_num} geladen...")
-                    await page.wait_for_timeout(3000)
+                    logging.info(f"📄 Seite {page_num} geklickt...")
+                    await page.wait_for_selector("li.DisruptionsOverviewVersionTwo_item__GvWfq", timeout=10000)
+                    await page.wait_for_timeout(2000)
                 except Exception as e:
                     logging.warning(f"⚠️ Seite {page_num} konnte nicht geladen werden: {e}")
                     continue

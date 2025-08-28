@@ -9,8 +9,6 @@
   "dependencies": {
     "puppeteer": "^21.3.0"
   },
-  "puppeteer": {
-  },
   "author": "",
   "license": "MIT"
 }

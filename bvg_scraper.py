@@ -15,7 +15,6 @@ async def scrape_bvg():
         for page_num in range(1, 6):  # Seiten 1 bis 5
             logging.info(f"📄 Lade Seite {page_num}...")
 
-            # Klicke per JavaScript auf die Seitenzahl
             if page_num > 1:
                 try:
                     await page.evaluate(f"""
@@ -33,32 +32,17 @@ async def scrape_bvg():
 
             for item in items:
                 beschreibung = item.select_one(".NotificationItemVersionTwo_content__kw1Ui p")
-                linien = item.select(".NotificationItemVersionTwo_signetContainer__zqGlg ._BdsSignetLine_8xinl_2")
-                von_bis = item.select_one(".LineStopsRange_LineStopsRange__I3I_1")
                 datum = item.select_one("time")
 
-                linien_text = ", ".join([l.get_text(strip=True) for l in linien]) if linien else ""
-                von_bis_text = von_bis.get_text(" ", strip=True) if von_bis else ""
                 beschreibung_text = beschreibung.get_text(" ", strip=True) if beschreibung else ""
                 datum_text = datum.get("datetime") if datum else ""
 
                 meldung = {
-                    "quelle": "BVG",
-                    "titel": f"Störung auf {linien_text}" if linien_text else "Unbekannte Linie",
-                    "beschreibung": beschreibung_text,
-                    "linie": linien_text,
-                    "strecke": von_bis_text,
-                    "zeit": datum_text
+                    "zeit": datum_text,
+                    "beschreibung": beschreibung_text
                 }
 
-                logging.info(
-                    f"📝 BVG-Meldung:\n"
-                    f"Titel: {meldung['titel']}\n"
-                    f"Linie: {meldung['linie']}\n"
-                    f"Strecke: {meldung['strecke']}\n"
-                    f"Zeit: {meldung['zeit']}\n"
-                    f"Beschreibung: {meldung['beschreibung']}\n{'-'*80}"
-                )
+                logging.info(f"🕒 {meldung['zeit']}\n📝 {meldung['beschreibung']}\n{'-'*60}")
                 meldungen.append(meldung)
 
         await browser.close()

@@ -36,8 +36,13 @@ async def post_threads(threads):
             return
 
         await page.goto("https://x.com/home", timeout=60000)
-        if any(keyword in page.url for keyword in ["login", "flow", "redirect_after_login"]):
-            logging.error("❌ Cookies ungültig – bitte manuell erneuern.")
+        html = await page.content()
+        logging.debug("📄 HTML-Ausschnitt der Startseite:\n" + html[:1000])
+
+        if any(keyword in page.url for keyword in ["login", "flow", "redirect_after_login"]) or "captcha" in html.lower():
+            logging.error("❌ Session nicht aktiv – Cookies ungültig oder blockiert.")
+            Path("session_invalid.html").write_text(html, encoding="utf-8")
+            await page.screenshot(path="session_invalid.png")
             await browser.close()
             return
 
@@ -46,7 +51,6 @@ async def post_threads(threads):
                 logging.info(f"✍️ Starte Thread {i}...")
                 await page.goto("https://x.com/compose/tweet", timeout=60000)
 
-                # Robustere Tweet-Feld-Erkennung
                 tweet_field = None
                 selectors = [
                     "div[data-testid='tweetTextarea_0']",

@@ -50,7 +50,11 @@ async def post_threads(threads):
             await browser.close()
             return
 
+        # Optionaler Login-Flow zur Session-Aktivierung
+        await page.goto("https://x.com/i/flow/login", timeout=60000)
+        await page.wait_for_timeout(5000)
         await page.goto("https://x.com/home", timeout=60000)
+
         html = await page.content()
         logging.debug("📄 HTML-Ausschnitt der Startseite:\n" + html[:1000])
 

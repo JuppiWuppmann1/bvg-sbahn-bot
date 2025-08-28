@@ -1,4 +1,5 @@
 from playwright.async_api import async_playwright
+from bs4 import BeautifulSoup
 import logging
 
 async def scrape_bvg():
@@ -7,41 +8,37 @@ async def scrape_bvg():
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context()
-        page = await context.new_page()
-
-        # Sammle JSON-Daten aus allen Seiten
-        async def handle_response(response):
-            if "stoerungsmeldungen" in response.url and "page=" in response.url:
-                try:
-                    if response.headers.get("content-type", "").startswith("application/json"):
-                        data = await response.json()
-                        for item in data.get("items", []):
-                            meldung = {
-                                "zeit": item.get("date"),
-                                "beschreibung": item.get("description")
-                            }
-                            logging.info(f"🕒 {meldung['zeit']}\n📝 {meldung['beschreibung']}\n{'-'*60}")
-                            meldungen.append(meldung)
-                except Exception as e:
-                    logging.warning(f"⚠️ Fehler beim Parsen der JSON-Daten: {e}")
-
-        page.on("response", handle_response)
-
-        logging.info(f"🌐 Lade BVG-Seite: {url}")
+        page = await browser.new_page()
         await page.goto(url, timeout=60000)
         await page.wait_for_timeout(3000)
 
-        # Klicke durch Seiten 2–5
-        for page_num in range(2, 6):
-            try:
-                await page.evaluate(f"""
-                    [...document.querySelectorAll('button')].find(b => b.textContent.trim() === '{page_num}')?.click()
-                """)
-                logging.info(f"📄 Seite {page_num} geladen...")
-                await page.wait_for_timeout(3000)
-            except Exception as e:
-                logging.warning(f"⚠️ Seite {page_num} konnte nicht geladen werden: {e}")
+        for page_num in range(1, 6):
+            if page_num > 1:
+                try:
+                    await page.evaluate(f"""
+                        [...document.querySelectorAll('button')].find(b => b.textContent.trim() === '{page_num}')?.click()
+                    """)
+                    logging.info(f"📄 Seite {page_num} geladen...")
+                    await page.wait_for_timeout(3000)
+                except Exception as e:
+                    logging.warning(f"⚠️ Seite {page_num} konnte nicht geladen werden: {e}")
+                    continue
+
+            html = await page.content()
+            soup = BeautifulSoup(html, "html.parser")
+            items = soup.select("li.DisruptionsOverviewVersionTwo_item__GvWfq")
+
+            for item in items:
+                beschreibung = item.select_one(".NotificationItemVersionTwo_content__kw1Ui p")
+                datum = item.select_one("time")
+
+                if beschreibung and datum:
+                    meldung = {
+                        "zeit": datum.get("datetime"),
+                        "beschreibung": beschreibung.get_text(" ", strip=True)
+                    }
+                    logging.info(f"🕒 {meldung['zeit']}\n📝 {meldung['beschreibung']}\n{'-'*60}")
+                    meldungen.append(meldung)
 
         await browser.close()
 

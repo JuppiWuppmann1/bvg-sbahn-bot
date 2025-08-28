@@ -29,6 +29,16 @@ async def scrape_bvg():
         await page.goto(url, timeout=60000)
         await page.wait_for_timeout(3000)
 
+        # Scroll nach unten, falls Inhalte erst dann geladen werden
+        await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        await page.wait_for_timeout(2000)
+
+        # Warten auf das erste Störungselement
+        try:
+            await page.wait_for_selector("li.DisruptionsOverviewVersionTwo_item__GvWfq", timeout=10000)
+        except Exception:
+            logging.warning("⚠️ Keine Störungselemente gefunden – Seite möglicherweise leer oder blockiert.")
+
         html = await page.content()
         DEBUG_FILE.write_text(html, encoding="utf-8")  # 💾 HTML speichern
 

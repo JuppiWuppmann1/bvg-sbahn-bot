@@ -3,18 +3,26 @@ from bs4 import BeautifulSoup
 import logging
 
 async def scrape_bvg():
-    base_url = "https://www.bvg.de/de/verbindungen/stoerungsmeldungen"
+    url = "https://www.bvg.de/de/verbindungen/stoerungsmeldungen"
     meldungen = []
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
+        await page.goto(url, timeout=60000)
+        await page.wait_for_timeout(3000)
 
         for page_num in range(1, 6):  # Seiten 1 bis 5
-            url = f"{base_url}?page={page_num}"
-            logging.info(f"🌐 Lade BVG-Seite {page_num}: {url}")
-            await page.goto(url, timeout=60000)
-            await page.wait_for_timeout(3000)
+            logging.info(f"📄 Lade Seite {page_num}...")
+
+            # Klicke auf die entsprechende Seitenzahl
+            if page_num > 1:
+                try:
+                    await page.click(f"text=\"{page_num}\"", timeout=5000)
+                    await page.wait_for_timeout(3000)
+                except Exception as e:
+                    logging.warning(f"⚠️ Seite {page_num} konnte nicht geladen werden: {e}")
+                    continue
 
             html = await page.content()
             soup = BeautifulSoup(html, "html.parser")
@@ -48,4 +56,3 @@ async def scrape_bvg():
 
     logging.info(f"✅ BVG-Scraper hat insgesamt {len(meldungen)} Meldungen extrahiert.")
     return meldungen
-    

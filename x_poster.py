@@ -6,15 +6,24 @@ from playwright.async_api import async_playwright
 
 COOKIES_FILE = Path("x_cookies.json")
 
+def normalize_same_site(value):
+    if not value:
+        return "Lax"
+    value = value.strip().lower()
+    if value == "strict":
+        return "Strict"
+    if value == "none":
+        return "None"
+    return "Lax"
+
 async def load_cookies(context):
     if COOKIES_FILE.exists():
         try:
             cookies = json.loads(COOKIES_FILE.read_text())
             for cookie in cookies:
-                if "sameSite" not in cookie or cookie["sameSite"].lower() not in ["strict", "lax", "none"]:
-                    cookie["sameSite"] = "Lax"
+                cookie["sameSite"] = normalize_same_site(cookie.get("sameSite"))
             await context.add_cookies(cookies)
-            logging.info("🍪 Cookies geladen und hinzugefügt.")
+            logging.info("🍪 Cookies geladen und korrigiert.")
         except Exception as e:
             logging.error(f"❌ Fehler beim Laden der Cookies: {e}")
             raise

@@ -13,7 +13,7 @@ const fs = require("fs");
   const cookies = JSON.parse(fs.readFileSync("x_cookies.json", "utf-8"));
 
   const browser = await puppeteer.launch({
-  headless: true,
+  headless: "new",
   executablePath: "/usr/bin/chromium-browser",
   args: ["--no-sandbox"]
 });

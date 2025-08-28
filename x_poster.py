@@ -26,6 +26,7 @@ async def login_and_save_cookies(page, username, password, max_retries=3):
 
             # Schritt 3: Weiterleitung prüfen
             await page.goto("https://x.com/home", timeout=60000)
+            await page.wait_for_timeout(8000)
             current_url = page.url
             logging.info(f"🔍 Aktuelle URL nach Login: {current_url}")
 
@@ -35,14 +36,24 @@ async def login_and_save_cookies(page, username, password, max_retries=3):
             # Schritt 4: Tweet-Feld oder Compose-Link prüfen
             tweet_field = await page.query_selector("div[data-testid='tweetTextarea_0']")
             compose_link = await page.query_selector("a[href='/compose/tweet']")
+            compose_button = await page.query_selector("div[aria-label='Tweet verfassen']")
 
-            if tweet_field or compose_link:
+            if tweet_field or compose_link or compose_button:
                 logging.info("✅ Login erfolgreich, speichere Cookies...")
                 cookies = await page.context.cookies()
                 COOKIES_FILE.write_text(json.dumps(cookies))
                 return
             else:
-                raise Exception("Tweet-Feld nicht gefunden – Login möglicherweise unvollständig")
+                logging.warning("⚠️ Tweet-Feld nicht gefunden – versuche direkten Zugriff...")
+                await page.goto("https://x.com/compose/tweet", timeout=60000)
+                try:
+                    await page.wait_for_selector("div[data-testid='tweetTextarea_0']", timeout=10000)
+                    logging.info("✅ Tweet-Feld über Compose-Seite gefunden – Login abgeschlossen.")
+                    cookies = await page.context.cookies()
+                    COOKIES_FILE.write_text(json.dumps(cookies))
+                    return
+                except Exception:
+                    raise Exception("Tweet-Feld auch über Compose-Seite nicht erreichbar.")
 
         except Exception as e:
             logging.error(f"❌ Login-Versuch {attempt} fehlgeschlagen: {e}")
@@ -87,10 +98,9 @@ async def post_threads(threads):
                 logging.info(f"✍️ Starte Thread {i}...")
                 await page.goto("https://x.com/compose/tweet", timeout=60000)
 
-                # Fallback: Falls Tweet-Feld nicht direkt sichtbar ist
                 tweet_field = await page.query_selector("div[data-testid='tweetTextarea_0']")
                 if not tweet_field:
-                    logging.info("🕵️ Tweet-Feld nicht sichtbar – versuche über Compose-Link...")
+                    logging.info("🕵️ Tweet-Feld nicht sichtbar – versuche erneut...")
                     await page.goto("https://x.com/compose/tweet", timeout=60000)
                     await page.wait_for_selector("div[data-testid='tweetTextarea_0']", timeout=30000)
 

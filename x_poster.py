@@ -1,9 +1,6 @@
 import logging
 import json
 import subprocess
-from pathlib import Path
-
-COOKIES_FILE = Path("x_cookies.json")
 
 def post_threads(threads):
     try:
@@ -26,4 +23,3 @@ def post_threads(threads):
             logging.error(f"📤 STDOUT:\n{e.stdout}")
         if e.stderr:
             logging.error(f"📥 STDERR:\n{e.stderr}")
-

@@ -1,4 +1,4 @@
-const puppeteer = require("puppeteer"); // kein puppeteer-core mehr
+const puppeteer = require("puppeteer");
 const fs = require("fs");
 
 (async () => {
@@ -14,6 +14,7 @@ const fs = require("fs");
 
   const browser = await puppeteer.launch({
     headless: true,
+    executablePath: "/usr/bin/chromium-browser", // oder /usr/bin/google-chrome
     args: ["--no-sandbox"]
   });
 
@@ -56,4 +57,3 @@ const fs = require("fs");
 
   await browser.close();
 })();
-

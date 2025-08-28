@@ -12,16 +12,17 @@ async def scrape_bvg():
 
         # Sammle JSON-Daten aus allen Seiten
         async def handle_response(response):
-            if "stoerungsmeldungen" in response.url and response.headers.get("content-type", "").startswith("application/json"):
+            if "stoerungsmeldungen" in response.url and "page=" in response.url:
                 try:
-                    data = await response.json()
-                    for item in data.get("items", []):
-                        meldung = {
-                            "zeit": item.get("date"),
-                            "beschreibung": item.get("description")
-                        }
-                        logging.info(f"🕒 {meldung['zeit']}\n📝 {meldung['beschreibung']}\n{'-'*60}")
-                        meldungen.append(meldung)
+                    if response.headers.get("content-type", "").startswith("application/json"):
+                        data = await response.json()
+                        for item in data.get("items", []):
+                            meldung = {
+                                "zeit": item.get("date"),
+                                "beschreibung": item.get("description")
+                            }
+                            logging.info(f"🕒 {meldung['zeit']}\n📝 {meldung['beschreibung']}\n{'-'*60}")
+                            meldungen.append(meldung)
                 except Exception as e:
                     logging.warning(f"⚠️ Fehler beim Parsen der JSON-Daten: {e}")
 
@@ -29,7 +30,7 @@ async def scrape_bvg():
 
         logging.info(f"🌐 Lade BVG-Seite: {url}")
         await page.goto(url, timeout=60000)
-        await page.wait_for_timeout(5000)
+        await page.wait_for_timeout(3000)
 
         # Klicke durch Seiten 2–5
         for page_num in range(2, 6):

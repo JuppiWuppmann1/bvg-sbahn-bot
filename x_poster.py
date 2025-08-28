@@ -46,20 +46,36 @@ async def post_threads(threads):
                 logging.info(f"✍️ Starte Thread {i}...")
                 await page.goto("https://x.com/compose/tweet", timeout=60000)
 
-                # Wiederholte Prüfung auf Tweet-Feld
+                # Robustere Tweet-Feld-Erkennung
+                tweet_field = None
+                selectors = [
+                    "div[data-testid='tweetTextarea_0']",
+                    "div[aria-label='Tweet verfassen']",
+                    "div[role='textbox']"
+                ]
+
                 for attempt in range(3):
-                    try:
-                        await page.wait_for_selector("div[data-testid='tweetTextarea_0']", timeout=10000)
+                    for selector in selectors:
+                        try:
+                            await page.wait_for_selector(selector, timeout=5000)
+                            tweet_field = await page.query_selector(selector)
+                            if tweet_field:
+                                break
+                        except:
+                            continue
+                    if tweet_field:
                         break
-                    except Exception:
-                        logging.warning(f"⚠️ Versuch {attempt+1}: Tweet-Feld nicht sichtbar...")
-                        await asyncio.sleep(2)
-                else:
-                    logging.warning("⚠️ Tweet-Feld nicht gefunden – Screenshot zur Analyse...")
+                    logging.warning(f"⚠️ Versuch {attempt+1}: Tweet-Feld nicht sichtbar...")
+                    await asyncio.sleep(2)
+
+                if not tweet_field:
+                    logging.error("❌ Tweet-Feld nicht gefunden – Screenshot & HTML gespeichert.")
                     await page.screenshot(path=f"tweet_field_missing_{i}.png")
+                    html = await page.content()
+                    Path(f"tweet_field_missing_{i}.html").write_text(html, encoding="utf-8")
                     continue
 
-                await page.fill("div[data-testid='tweetTextarea_0']", thread[0])
+                await tweet_field.fill(thread[0])
 
                 for reply in thread[1:]:
                     await page.click("div[data-testid='tweetButtonInline']")

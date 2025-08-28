@@ -39,8 +39,9 @@ async def post_threads(threads):
         html = await page.content()
         logging.debug("📄 HTML-Ausschnitt der Startseite:\n" + html[:1000])
 
-        if any(keyword in page.url for keyword in ["login", "flow", "redirect_after_login"]) or "captcha" in html.lower():
-            logging.error("❌ Session nicht aktiv – Cookies ungültig oder blockiert.")
+        # Session-Check: Compose-Link muss vorhanden sein
+        if not await page.query_selector("a[href='/compose/tweet']"):
+            logging.error("❌ Session nicht aktiv – kein Compose-Link gefunden.")
             Path("session_invalid.html").write_text(html, encoding="utf-8")
             await page.screenshot(path="session_invalid.png")
             await browser.close()
@@ -55,7 +56,8 @@ async def post_threads(threads):
                 selectors = [
                     "div[data-testid='tweetTextarea_0']",
                     "div[aria-label='Tweet verfassen']",
-                    "div[role='textbox']"
+                    "div[role='textbox']",
+                    "textarea"
                 ]
 
                 for attempt in range(3):

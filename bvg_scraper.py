@@ -33,10 +33,11 @@ async def scrape_bvg():
                         logging.info(f"⏭️ Seite {page_num} nicht verfügbar – Button nicht gefunden.")
                         continue
 
-        except Exception as e:
-            logging.warning(f"⚠️ Seite {page_num} konnte nicht geladen werden: {e}")
-            continue
+                except Exception as e:
+                    logging.warning(f"⚠️ Seite {page_num} konnte nicht geladen werden: {e}")
+                    continue
 
+            # HTML parsen – außerhalb des try/except!
             html = await page.content()
             soup = BeautifulSoup(html, "html.parser")
             items = soup.select("li.DisruptionsOverviewVersionTwo_item__GvWfq")
@@ -57,4 +58,3 @@ async def scrape_bvg():
 
     logging.info(f"✅ BVG-Scraper hat insgesamt {len(meldungen)} Meldungen extrahiert.")
     return meldungen
-

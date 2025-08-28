@@ -10,7 +10,6 @@
     "puppeteer": "^21.3.0"
   },
   "puppeteer": {
-    "skipDownload": true
   },
   "author": "",
   "license": "MIT"

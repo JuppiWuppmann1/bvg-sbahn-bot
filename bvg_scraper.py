@@ -71,4 +71,5 @@ async def run_bvg_scraper():
         await scrape_bvg()
         return {"status": "ok"}
     except Exception as e:
-        logging.error(f"❌ Fehler
+        logging.error(f"❌ Fehler beim BVG-Scraper: {e}")
+        return {"status": "error", "message": str(e)}

@@ -1,8 +1,7 @@
 fastapi
 uvicorn
-httpx
-beautifulsoup4
-playwright
-apscheduler
-aiohttp
 requests
+beautifulsoup4
+apscheduler
+discord.py
+python-dotenv

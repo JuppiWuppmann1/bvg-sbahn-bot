@@ -1,45 +1,34 @@
 import logging
-import re
+import httpx
 from bs4 import BeautifulSoup
-from playwright.async_api import async_playwright
 
 async def scrape_sbahn():
     url = "https://sbahn.berlin/fahren/bauen-stoerung/"
     meldungen = []
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
-        await page.goto(url, timeout=60000)
-        await page.wait_for_timeout(3000)  # Warten auf JS-Inhalte
+    logging.info(f"🌐 Lade S-Bahn-Seite: {url}")
+    async with httpx.AsyncClient() as client:
+        r = await client.get(url, timeout=30)
+        r.raise_for_status()
+        html = r.text
 
-        html = await page.content()
-        soup = BeautifulSoup(html, "html.parser")
+    soup = BeautifulSoup(html, "html.parser")
+    items = soup.select("div.meldungsteaser")
 
-        for item in soup.select("div.c-construction-announcement"):
-            titel_tag = item.select_one("h3.o-construction-announcement-title__heading")
-            beschreibung_tag = item.select_one("div.c-construction-announcement-details")
+    for item in items:
+        titel_tag = item.select_one("h3")
+        beschreibung_tag = item.select_one("p")
 
-            titel = titel_tag.get_text(strip=True) if titel_tag else ""
-            beschreibung_raw = beschreibung_tag.get_text(" ", strip=True) if beschreibung_tag else ""
+        titel = titel_tag.get_text(strip=True) if titel_tag else "Unbekannt"
+        beschreibung = beschreibung_tag.get_text(strip=True) if beschreibung_tag else ""
 
-            # 🧹 Entferne irrelevante UI-Texte
-            beschreibung_raw = re.sub(r"(Ausführliche Informationen|Bauvideo|schließen)+", "", beschreibung_raw, flags=re.IGNORECASE)
+        meldungen.append({
+            "quelle": "S-Bahn",
+            "titel": titel,
+            "beschreibung": beschreibung
+        })
 
-            # ✂️ Beschreibung in Absätze aufteilen
-            beschreibung_parts = re.split(r'(?<=[.!?])\s+', beschreibung_raw)
-            beschreibung = "\n".join(beschreibung_parts)
-
-            # 🧾 Vollständige Meldung ins Log schreiben
-            logging.info(f"🚆 Vollständige Meldung:\nTitel: {titel}\nBeschreibung:\n{beschreibung}\n{'-'*80}")
-
-            meldungen.append({
-                "quelle": "S-Bahn",
-                "titel": titel,
-                "beschreibung": beschreibung
-            })
-
-        await browser.close()
+        logging.info(f"🚆 Vollständige Meldung:\nTitel: {titel}\nBeschreibung:\n{beschreibung}\n{'-'*60}")
 
     logging.info(f"✅ S-Bahn-Scraper hat {len(meldungen)} Meldungen gefunden.")
     return meldungen

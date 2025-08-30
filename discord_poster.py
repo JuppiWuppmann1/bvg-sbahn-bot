@@ -1,26 +1,19 @@
-import logging
 import os
-import aiohttp
-import asyncio
+import discord
+from dotenv import load_dotenv
 
-WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK")
+load_dotenv()
 
-async def post_to_discord(threads):
-    if not WEBHOOK_URL:
-        logging.error("❌ Kein DISCORD_WEBHOOK gesetzt!")
-        return
+TOKEN = os.getenv("DISCORD_TOKEN")
+CHANNEL_ID = int(os.getenv("DISCORD_CHANNEL_ID"))
 
-    async with aiohttp.ClientSession() as session:
-        for i, thread in enumerate(threads, 1):
-            content = "\n\n".join(thread)
-            try:
-                payload = {"content": content}
-                async with session.post(WEBHOOK_URL, json=payload) as resp:
-                    if resp.status == 204:
-                        logging.info(f"✅ Thread {i} an Discord gesendet.")
-                    else:
-                        text = await resp.text()
-                        logging.error(f"❌ Fehler bei Thread {i}: {resp.status} {text}")
-                await asyncio.sleep(1)
-            except Exception as e:
-                logging.error(f"❌ Exception beim Senden an Discord: {e}")
+intents = discord.Intents.default()
+client = discord.Client(intents=intents)
+
+
+async def send_discord_message(message: str):
+    channel = client.get_channel(CHANNEL_ID)
+    if channel:
+        await channel.send(message)
+    else:
+        print("⚠️ Discord channel not found!")

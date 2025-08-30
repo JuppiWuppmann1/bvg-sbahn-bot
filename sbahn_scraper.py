@@ -1,34 +1,43 @@
-import logging
-import httpx
+import requests
 from bs4 import BeautifulSoup
 
-async def scrape_sbahn():
-    url = "https://sbahn.berlin/fahren/bauen-stoerung/"
-    meldungen = []
+URL = "https://sbahn.berlin/fahren/bauen-stoerung/"
 
-    logging.info(f"🌐 Lade S-Bahn-Seite: {url}")
-    async with httpx.AsyncClient() as client:
-        r = await client.get(url, timeout=30)
-        r.raise_for_status()
-        html = r.text
+def scrape_sbahn_constructions():
+    res = requests.get(URL)
+    res.raise_for_status()
+    soup = BeautifulSoup(res.text, "html.parser")
 
-    soup = BeautifulSoup(html, "html.parser")
-    items = soup.select("div.meldungsteaser")
+    results = []
 
-    for item in items:
-        titel_tag = item.select_one("h3")
-        beschreibung_tag = item.select_one("p")
+    # Alle Meldungen finden
+    for con in soup.select("div.c-construction-announcement"):
+        try:
+            lines = con.get("data-lines", "").split(",")
+            title = con.select_one("h3.o-construction-announcement-title__heading").get_text(strip=True)
+            timespan = con.select_one("div.o-timespan__center").get_text(strip=True)
+            
+            # Detail-Text
+            detail_block = con.select_one("div.c-construction-announcement-details ul")
+            details = " ".join(li.get_text(" ", strip=True) for li in detail_block.select("li")) if detail_block else ""
 
-        titel = titel_tag.get_text(strip=True) if titel_tag else "Unbekannt"
-        beschreibung = beschreibung_tag.get_text(strip=True) if beschreibung_tag else ""
+            results.append({
+                "lines": [l.upper() for l in lines if l],
+                "title": title,
+                "timespan": timespan,
+                "details": details
+            })
+        except Exception as e:
+            print("Fehler beim Parsen einer Meldung:", e)
 
-        meldungen.append({
-            "quelle": "S-Bahn",
-            "titel": titel,
-            "beschreibung": beschreibung
-        })
+    return results
 
-        logging.info(f"🚆 Vollständige Meldung:\nTitel: {titel}\nBeschreibung:\n{beschreibung}\n{'-'*60}")
 
-    logging.info(f"✅ S-Bahn-Scraper hat {len(meldungen)} Meldungen gefunden.")
-    return meldungen
+if __name__ == "__main__":
+    meldungen = scrape_sbahn_constructions()
+    for m in meldungen:
+        print("🚆 Linien:", ", ".join(m["lines"]))
+        print("📌 Titel:", m["title"])
+        print("🕒 Zeitraum:", m["timespan"])
+        print("ℹ️ Details:", m["details"])
+        print("-" * 50)

@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: bvg-sbahn-bot
+    env: python
+    plan: free
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      playwright install --with-deps
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false

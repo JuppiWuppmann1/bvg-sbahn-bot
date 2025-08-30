@@ -1,7 +1,7 @@
+playwright==1.48.0
+beautifulsoup4
 fastapi
 uvicorn
-requests
-beautifulsoup4
 apscheduler
+httpx
 discord.py
-python-dotenv

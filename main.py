@@ -13,38 +13,53 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 app = FastAPI()
 scheduler = AsyncIOScheduler()
 
-last_titles = set()
+# hier merken wir uns bekannte Störungen
+active_disruptions = set()
 
 
 async def job():
-    global last_titles
+    global active_disruptions
     logging.info("🔎 Starte neuen Check...")
 
-    # BVG
+    current_titles = set()
+
+    # --- BVG ---
     bvg_disruptions = scrape_bvg_disruptions(max_pages=5)
     for d in bvg_disruptions:
-        if d["title"] not in last_titles:
+        title = f"BVG: {d['title']}"
+        current_titles.add(title)
+
+        if title not in active_disruptions:
             msg = (
-                f"🚇 **BVG Störung**: {d['title']}\n"
+                f"🚇 **Neue BVG Störung**: {d['title']}\n"
                 f"📌 Typ: {d['type']}\n"
                 f"🕒 Von: {d['start']}  Bis: {d['end']}\n"
                 f"ℹ️ {d['details']}"
             )
             await send_discord_message(msg)
-            last_titles.add(d["title"])
 
-    # S-Bahn
+    # --- S-Bahn ---
     sbahn_disruptions = scrape_sbahn_disruptions()
     for d in sbahn_disruptions:
-        if d["title"] not in last_titles:
+        title = f"S-Bahn: {d['title']}"
+        current_titles.add(title)
+
+        if title not in active_disruptions:
             msg = (
-                f"🚆 **S-Bahn Störung**: {d['title']}\n"
+                f"🚆 **Neue S-Bahn Störung**: {d['title']}\n"
                 f"🕒 {d['date']}\n"
                 f"ℹ️ {d['subtitle']}\n"
                 f"{d['details']}"
             )
             await send_discord_message(msg)
-            last_titles.add(d["title"])
+
+    # --- Prüfen ob etwas verschwunden ist ---
+    disappeared = active_disruptions - current_titles
+    for old in disappeared:
+        await send_discord_message(f"✅ **Behoben:** {old}")
+
+    # neuen Stand speichern
+    active_disruptions = current_titles
 
 
 @app.on_event("startup")

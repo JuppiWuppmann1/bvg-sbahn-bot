@@ -5,3 +5,4 @@ httpx
 beautifulsoup4
 requests
 discord.py
+playwright

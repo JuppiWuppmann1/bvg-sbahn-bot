@@ -8,4 +8,4 @@ services:
     startCommand: uvicorn main:app --host 0.0.0.0 --port 10000
     envVars:
       - key: DISCORD_WEBHOOK
-        sync: false  # damit Render es im Dashboard setzt, nicht im Repo sichtbar
+        sync: false

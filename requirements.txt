@@ -5,3 +5,4 @@ beautifulsoup4
 playwright
 apscheduler
 aiohttp
+requests

@@ -1,8 +1,7 @@
-playwright==1.48.0
-beautifulsoup4
 fastapi
 uvicorn
 apscheduler
 httpx
-discord.py
+beautifulsoup4
 requests
+discord.py

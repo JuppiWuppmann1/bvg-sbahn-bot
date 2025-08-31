@@ -7,7 +7,9 @@ services:
       pip install --upgrade pip
       pip install -r requirements.txt
       playwright install --with-deps
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    startCommand: |
+      playwright install
+      uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DISCORD_TOKEN
         sync: false

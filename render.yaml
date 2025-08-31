@@ -8,8 +8,10 @@ services:
       pip install -r requirements.txt
       playwright install --with-deps
     startCommand: |
-      playwright install
+      rm -rf /opt/render/.cache/ms-playwright
+      playwright install chromium
       uvicorn main:app --host 0.0.0.0 --port $PORT
+
     envVars:
       - key: DISCORD_TOKEN
         sync: false

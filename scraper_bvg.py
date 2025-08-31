@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+import logging
 
 BASE_URL = "https://www.bvg.de/de/verbindungen/stoerungsmeldungen"
 
@@ -38,3 +39,21 @@ def scrape_bvg_disruptions(max_pages=5):
                 continue
 
     return disruptions
+
+
+async def run_bvg_scraper():
+    try:
+        disruptions = scrape_bvg_disruptions()
+        if disruptions:
+            messages = [
+                f"🚇 **BVG-Störung**\n"
+                f"🔹 {d['title']} ({d['type']})\n"
+                f"📅 {d['start']} - {d['end']}\n"
+                f"ℹ️ {d['details'][:300]}..."
+                for d in disruptions
+            ]
+            return messages
+        return []
+    except Exception as e:
+        logging.error(f"❌ Fehler im BVG-Scraper: {e}")
+        return []

@@ -1,3 +1,4 @@
+import os
 import asyncio
 import logging
 from fastapi import FastAPI
@@ -6,10 +7,14 @@ from scraper_bvg import run_bvg_scraper
 from scraper_sbahn import run_sbahn_scraper
 from discord_bot import send_discord_message, client
 
+# Logging Setup
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 app = FastAPI()
 scheduler = AsyncIOScheduler()
+
+# Discord Token aus Environment Variablen
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
 
 async def job():
@@ -55,11 +60,13 @@ async def run_check():
 
 # Discord-Bot starten
 async def start_discord_bot():
-    await client.start(client.http.token)
+    if not DISCORD_TOKEN:
+        logging.error("❌ Kein DISCORD_TOKEN gefunden! Bitte in den Render-Umgebungsvariablen setzen.")
+        return
+    await client.start(DISCORD_TOKEN)
 
 
 # Hintergrund-Task für Discord starten
 @app.on_event("startup")
 async def start_discord_task():
     asyncio.create_task(start_discord_bot())
-

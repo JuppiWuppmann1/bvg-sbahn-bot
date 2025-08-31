@@ -25,7 +25,7 @@ async def scrape_sbahn_disruptions():
     disruptions = []
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        browser = await p.chromium.launch(headless=True, executable_path="/opt/render/.cache/ms-playwright/chromium-1187/chrome-linux/chrome")
         page = await browser.new_page()
         await page.goto(BASE_URL, timeout=60000)
         await page.wait_for_selector("li.smc-tile", timeout=10000)

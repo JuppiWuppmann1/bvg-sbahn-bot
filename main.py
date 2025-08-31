@@ -18,7 +18,7 @@ async def job():
     logging.info("🔎 Starte neuen Check...")
     try:
         bvg_result = await run_bvg_scraper(send_discord_message)
-        sbahn_result = await run_sbahn_scraper()
+        sbahn_result = await run_sbahn_scraper(send_discord_message)
 
         for msg in sbahn_result:
             await send_discord_message(msg)

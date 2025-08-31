@@ -33,7 +33,8 @@ async def startup_event():
     scheduler.add_job(job, "interval", minutes=10)
     scheduler.start()
     logging.info("⏰ Scheduler gestartet (alle 10 Minuten)")
-    asyncio.create_task(send_discord_message("🚀 Bot erfolgreich gestartet und verbunden!"))
+
+    # Starte Discord-Bot separat
     asyncio.create_task(start_discord_bot())
 
 @app.get("/")

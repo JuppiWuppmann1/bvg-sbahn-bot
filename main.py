@@ -19,9 +19,12 @@ async def job():
         sbahn_result = await run_sbahn_scraper()
 
         if bvg_result:
-            await send_discord_message(f"🚇 BVG-Update: {bvg_result}")
+            for msg in bvg_result:
+                await send_discord_message(msg)
+
         if sbahn_result:
-            await send_discord_message(f"🚆 S-Bahn-Update: {sbahn_result}")
+            for msg in sbahn_result:
+                await send_discord_message(msg)
 
         if not bvg_result and not sbahn_result:
             logging.info("ℹ️ Keine neuen Störungen gefunden.")

@@ -17,16 +17,17 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 async def job():
     logging.info("🔎 Starte neuen Check...")
     try:
-        bvg_result = await run_bvg_scraper()
+        bvg_result = await run_bvg_scraper(send_discord_message)
         sbahn_result = await run_sbahn_scraper()
 
-        for msg in bvg_result + sbahn_result:
+        for msg in sbahn_result:
             await send_discord_message(msg)
 
         if not bvg_result and not sbahn_result:
             logging.info("ℹ️ Keine neuen Störungen gefunden.")
     except Exception as e:
         logging.error(f"❌ Fehler im Job: {e}")
+
 
 @app.on_event("startup")
 async def startup_event():

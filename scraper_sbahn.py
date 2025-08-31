@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+import logging
 
 BASE_URL = "https://sbahn.berlin/fahren/bauen-stoerung/"
 
@@ -30,3 +31,21 @@ def scrape_sbahn_disruptions():
             continue
 
     return disruptions
+
+
+async def run_sbahn_scraper():
+    try:
+        disruptions = scrape_sbahn_disruptions()
+        if disruptions:
+            messages = [
+                f"🚆 **S-Bahn-Störung**\n"
+                f"🔹 {d['title']} ({d['date']})\n"
+                f"ℹ️ {d['subtitle']}\n"
+                f"📄 {d['details'][:300]}..."
+                for d in disruptions
+            ]
+            return messages
+        return []
+    except Exception as e:
+        logging.error(f"❌ Fehler im S-Bahn-Scraper: {e}")
+        return []

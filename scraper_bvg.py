@@ -25,7 +25,7 @@ async def scrape_bvg_disruptions(max_pages=3):
     disruptions = []
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        browser = await p.chromium.launch(headless=True, executable_path="/opt/render/.cache/ms-playwright/chromium-1187/chrome-linux/chrome")
         page = await browser.new_page()
 
         for page_num in range(1, max_pages + 1):
